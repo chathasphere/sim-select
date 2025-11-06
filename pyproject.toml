@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "sim-select"
+version = "0.1.0"
+description = ""
+authors = ["Prayag Chatha <pgchatha@gmail.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+numpy = "^2.2.1"
+lightning = "^2.5.0.post0"
+pandas = "^2.2.3"
+scipy = "^1.14.1"
+jupyter = "^1.1.1"
+matplotlib = "^3.10.0"
+seaborn = "^0.13.2"
+pytest = "^8.3.4"
+hydra-core = "^1.3.2"
+wandb = "^0.19.1"
+openpyxl = "^3.1.5"
+scikit-learn = "^1.6.1"
+emcee = "^3.1.6"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
