@@ -109,7 +109,6 @@ class GaussianDensityNetwork(GaussianDensityNetworkBase):
             ReLU(),
             Linear(d_model, self.n_outputs),
         )
-        # eventually need to save this as an hparam if i am checkpointing models
         self.lr = lr
         self.wd = weight_decay
         self.mean_field = mean_field
@@ -118,92 +117,6 @@ class GaussianDensityNetwork(GaussianDensityNetworkBase):
         
     def encoder(self, x):
         return self.ff(x)
-    
-class SummaryGDN(GaussianDensityNetwork):
-    def __init__(self, d_x, d_theta, d_model, lr, weight_decay,
-                 mean_field, d_summ):
-        
-        first_dim = d_x * d_summ
-        super().__init__(d_x, d_theta, d_model, lr, weight_decay, mean_field,
-                         first_dim)
-        
-        self.summarize = torch.nn.Sequential(
-                Linear(1, d_summ),
-                ReLU(),
-                Linear(d_summ, d_summ*2),
-                ReLU(),
-                Linear(d_summ*2, d_summ)
-            )
-        
-        self.register_buffer("floor_trace", None)
-        self.register_buffer("room_trace", None)
-        self.register_buffer("mask", None)
-        # self.floor_trace = None
-        # self.room_trace = None
-        # self.mask = None
-        self.d_summ = d_summ
-        
-        
-    def load_traces(self, floor_trace, room_trace):
-        self.register_buffer("floor_trace", torch.tensor(floor_trace, device=self.device))
-        self.register_buffer("room_trace", torch.tensor(room_trace, device=self.device))
-        
-        # create embedding layers
-        self.floor_embedding = Embedding(self.floor_trace.max() + 1, 3)
-        self.room_embedding = Embedding(self.room_trace.max() + 1, 8) 
-        
-        self.summarize = torch.nn.Sequential(
-                Linear(12, self.d_summ),
-                ReLU(),
-                Linear(self.d_summ, self.d_summ),
-                ReLU(),
-                Linear(self.d_summ, self.d_summ),
-            )
-    
-
-    def load_mask(self, mask):
-        self.register_buffer("mask", torch.tensor(mask, device=self.device))
-            
-    
-    def encoder(self, x):
-        x = torch.nan_to_num(x).unsqueeze(-1)
-        # new idea: torch.where(self.floor_trace = f, x, 0)
-        if (self.floor_trace is not None and self.room_trace is not None):
-            m = x.shape[0]
-            f = self.floor_embedding(self.floor_trace).expand(m, -1, -1, -1)
-            x = torch.cat([x, f], -1)
-            r = self.room_embedding(self.room_trace).expand(m, -1, -1, -1)
-            x = torch.cat([x, f, r], -1)
-        
-        x = self.summarize(x)
-        if self.mask is not None:
-            w = self.mask.unsqueeze(-1)
-            x = x * w
-        # pool over observations
-        # x = x.sum(1)
-        x = x.mean(1) # mean pooling helps prevent exploding gradient
-        x = x.flatten(1, 2)
-        return self.ff(x)
-
-class GaussianDensityRNN(GaussianDensityNetworkBase):
-    def __init__(self, d_x, d_theta, d_model, lr, weight_decay,
-                mean_field, n_layers, dropout):
-        super().__init__(d_theta, lr, weight_decay,
-                mean_field)
-        
-        self.LSTM = torch.nn.LSTM(
-            input_size=d_x[1], hidden_size=d_model, num_layers=n_layers,
-            dropout=dropout, batch_first=True, 
-        )
-        self.to_output = torch.nn.Sequential(
-            ReLU(),
-            Linear(d_model, self.n_outputs)
-        )
-        
-    def encoder(self, x):
-        y, _ = self.LSTM(x)
-        y = y.mean(dim=1)
-        return self.to_output(y)
     
     
 class GaussianDensityTransformer(GaussianDensityNetworkBase):

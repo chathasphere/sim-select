@@ -1,16 +1,16 @@
 defaults:
   - _self_
   - model: gdn
-  - simulator: normal-normal
+  - simulator: sir
 
 simulator:
-  n_sample: 4000
+  n_sample: 100
 
 train:
-  train_frac: 0.75
+  train_frac: 0.80
   batch_size:
   seed: 11 # random seed for training/validation split
-  max_epochs: 1000
+  max_epochs: 20 # 1000
   log_freq: 4
   patience: 20
   stop_early: True
@@ -23,9 +23,6 @@ model:
 log: True
 fast_dev_run: False
 
-n_posterior_sample: 0 # for sampling from normalizing flows
-
-gpu_device: "mps"
 
 hydra:
   job:
