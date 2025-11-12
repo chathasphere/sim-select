@@ -31,8 +31,9 @@ class SIRModel(Simulator):
             xs.append(sim)
         
         xs = torch.stack(xs).float()
-            
-        return xs, thetas.float()
+        
+        # move parameters to the log scale
+        return xs, torch.log(thetas.float())
         
     def sample_prior(self, N, seed=None):
         if seed is not None:
@@ -41,10 +42,12 @@ class SIRModel(Simulator):
         return prior.sample((N,))
     
     def get_observed_data(self):
-        pass
+        theta_true = np.array([self.beta, self.gamma])
+        x_o = self.simulate(theta_true, self.obs_seed)
+        return x_o.flatten().unsqueeze(0).float()
     
-    def simulate(self, theta, seed):
-        beta, gamma = theta # probably need to fix this
+    def simulate(self, theta, seed=None):
+        beta, gamma = theta
         N, T = self.N, self.T
         
         X = np.zeros((T, N))
@@ -53,6 +56,8 @@ class SIRModel(Simulator):
         # initialize infecteds
         n_init = int(0.02 * N)
         X[0][:n_init] = 1
+        
+        if seed is not None: np.random.seed(seed)
         
         for t in range(1, T):
             S = (1 - X[t-1]) * (1 - Y[t-1])
@@ -68,8 +73,8 @@ class SIRModel(Simulator):
             Y[t] = np.where(I, np.random.binomial(1, p_r, N), Y[t-1])
             
         # summarize simulated data
-        sX = X.sum(1)
-        sY = Y.sum(1)
+        sX = X.mean(1)
+        sY = Y.mean(1)
         
         # TODO: partial observation of data
         # TODO: compatibility with transformers?

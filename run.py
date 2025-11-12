@@ -10,7 +10,8 @@ import lightning as L
 def main(cfg):
 
     dataset = instantiate(cfg.simulator, _convert_ = "all")
-
+    observed_data = dataset.get_observed_data()
+    
     if cfg.train.batch_size is None:
         batch_size = cfg.simulator.n_sample
     else:
@@ -40,7 +41,9 @@ def main(cfg):
     
 
     trainer.fit(model, datamodule=datamodule)
-    
+    posterior_params = model.predict_step(observed_data)
+    # TODO: save results to yaml
+    print(posterior_params)
 
 if __name__ == "__main__":
     main()
