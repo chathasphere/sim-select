@@ -9,6 +9,8 @@ import lightning as L
 @hydra.main(config_path="configs", config_name="config.yaml", version_base=None)
 def main(cfg):
 
+    # TODO: switch training-prediction logic between "inference" and "criticism"
+
     dataset = instantiate(cfg.simulator, _convert_ = "all")
     observed_data = dataset.get_observed_data()
     
@@ -20,10 +22,9 @@ def main(cfg):
         dataset, cfg.train.seed, batch_size, cfg.train.train_frac
         )
     
+    # TODO: calculate d_x and d_theta on the fly
     model = instantiate(cfg.model, d_x=dataset.d_x, d_theta=dataset.d_theta,
                         _convert_ = "all")
-    
-    
     if cfg.log:
         wandb.init(reinit=False)
         logger = WandbLogger(project="sim-select")

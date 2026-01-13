@@ -5,7 +5,7 @@ from torch.distributions import Gamma
 
 class SIRModel(Simulator):
     def __init__(self, beta, gamma, N, T, prior_scale, name=None, n_sample=None,
-                 observed_seed=None):
+                 observed_seed=None, partial_obs=False):
         self.beta = beta
         self.gamma = gamma
         self.N = N
@@ -13,27 +13,37 @@ class SIRModel(Simulator):
         self.obs_seed = observed_seed
         self.prior_scale = prior_scale
         self.n_sample = n_sample
+        self.partial = partial_obs
         # TODO: save simulated data
         
         self.d_theta = 2
-        self.d_x = 2 * T # asssume full observation for now
+        if self.partial:
+            self.d_x = T
+        else:
+            self.d_x = 2 * T
+            
+        # TODO: compatibility with transformers
+        # enough to specify the shape of the data up front: gets rearranged 
+        # by the encoder/embedding network
+        
+        
         self.data, self.theta = self.sample_model()
         
         
     def sample_model(self):
         thetas = self.sample_prior(self.n_sample, 7)
-        xs = []
+        ds = [] # list of simulated data sets
         for i in range(self.n_sample):
             random_seed = 7 * i # decorrelate random samples
             sim = self.simulate(
                 thetas[i], random_seed
             )
-            xs.append(sim)
+            ds.append(sim)
         
-        xs = torch.stack(xs).float()
+        ds = torch.stack(ds).float()
         
         # move parameters to the log scale
-        return xs, torch.log(thetas.float())
+        return ds, torch.log(thetas.float())
         
     def sample_prior(self, N, seed=None):
         if seed is not None:
@@ -76,9 +86,10 @@ class SIRModel(Simulator):
         sX = X.mean(1)
         sY = Y.mean(1)
         
-        # TODO: partial observation of data
-        # TODO: compatibility with transformers?
-        data = np.stack([sX, sY]).flatten()
+        if self.partial:
+            data = sX # only incidence (new cases) is observed
+        else:
+            data = np.stack([sX, sY]).flatten()
         
         return torch.tensor(data).float()
     

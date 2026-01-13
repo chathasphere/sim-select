@@ -144,6 +144,8 @@ class GaussianDensityTransformer(GaussianDensityNetworkBase):
         )
         
     def encoder(self, x):
+        # transformer is expecting 
+        # (batch, seq, feature)
         x = x.unflatten(-1, self.d_x).transpose(1, 2)
         x = self.embed(x)
         x = self.pos_encode(x)
