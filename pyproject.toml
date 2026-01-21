@@ -21,6 +21,7 @@ wandb = "^0.19.1"
 openpyxl = "^3.1.5"
 scikit-learn = "^1.6.1"
 emcee = "^3.1.6"
+zuko = "^1.5.0"
 
 
 [build-system]

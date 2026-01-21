@@ -1,0 +1,11 @@
+_target_: src.data.module.SimulatorModule
+
+train_frac: 0.90
+batch_size:
+seed: 11 # random seed for training/validation split
+
+# another option: create a folder of simulator configs...defaults
+dataset:
+  _target_: src.data.simulator.Simulator
+  n_sample: 100
+  name: "base-simulator"

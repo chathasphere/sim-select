@@ -5,26 +5,21 @@ from torch.distributions import Gamma
 
 class SIRModel(Simulator):
     def __init__(self, beta, gamma, N, T, prior_scale, name=None, n_sample=None,
-                 observed_seed=None, partial_obs=False):
+                 observed_seed=None, partial_obs=False, mode="estimation"):
+        super().__init__(n_sample, name, mode)
         self.beta = beta
         self.gamma = gamma
         self.N = N
         self.T = T
         self.obs_seed = observed_seed
         self.prior_scale = prior_scale
-        self.n_sample = n_sample
+        # self.n_sample = n_sample
         self.partial = partial_obs
         # TODO: save simulated data
         
-        self.d_theta = 2
-        if self.partial:
-            self.d_x = T
-        else:
-            self.d_x = 2 * T
             
         # TODO: compatibility with transformers
-        # enough to specify the shape of the data up front: gets rearranged 
-        # by the encoder/embedding network
+
         
         
         self.data, self.theta = self.sample_model()

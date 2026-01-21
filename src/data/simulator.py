@@ -2,19 +2,23 @@ from torch.utils.data import Dataset
 
 
 class Simulator(Dataset):
-    def __init__(self, n_sample, name):
-        self.n_sample = None
+    def __init__(self, n_sample, name, mode=None):
+        self.n_sample = n_sample
+        self.name = name
         self.data = None
         self.theta = None
-        self.d_x = None
-        self.d_theta = None
-        self.name = None
+        self.mode = mode
 
     def __len__(self):
         return self.n_sample
     
     def __getitem__(self, index):
-        return self.data[index], self.theta[index]
+        if self.mode == "estimation":
+            return self.data[index], self.theta[index]
+        elif self.mode == "criticism":
+            return self.data[index]
+        else:
+            raise ValueError("Invalid training task!")
     
     def simulate_data(self):
         raise NotImplementedError

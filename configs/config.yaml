@@ -1,28 +1,16 @@
 defaults:
   - _self_
+  - data: sir
   - model: gdn
-  - simulator: sir
+  - trainer: default
 
-simulator:
-  n_sample: 100
-
-train:
-  train_frac: 0.80
-  batch_size:
-  seed: 11 # random seed for training/validation split
-  max_epochs: 20 # 1000
-  log_freq: 4
-  patience: 20
-  stop_early: True
-  devices: auto
-
-model:
-  lr: 0.001
-  weight_decay: 0.0
+task: estimation # criticism
 
 log: True
-fast_dev_run: False
 
+callbacks:
+  stop_early: True
+  patience: 20
 
 hydra:
   job:

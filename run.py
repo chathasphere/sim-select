@@ -1,6 +1,5 @@
 import hydra
 from hydra.utils import instantiate
-from src.utils import DataModule
 import wandb
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
@@ -9,42 +8,40 @@ import lightning as L
 @hydra.main(config_path="configs", config_name="config.yaml", version_base=None)
 def main(cfg):
 
-    # TODO: switch training-prediction logic between "inference" and "criticism"
+    datamodule = instantiate(cfg.data, task=cfg.task, _convert_ = "partial")
+    observed_data = datamodule.dataset.get_observed_data()
+    
+    if cfg.task == "estimation":
 
-    dataset = instantiate(cfg.simulator, _convert_ = "all")
-    observed_data = dataset.get_observed_data()
-    
-    if cfg.train.batch_size is None:
-        batch_size = cfg.simulator.n_sample
-    else:
-        batch_size = cfg.train.batch_size
-    datamodule = DataModule(
-        dataset, cfg.train.seed, batch_size, cfg.train.train_frac
-        )
-    
-    # TODO: calculate d_x and d_theta on the fly
-    model = instantiate(cfg.model, d_x=dataset.d_x, d_theta=dataset.d_theta,
-                        _convert_ = "all")
+        model = instantiate(cfg.model, d_x=datamodule.d_x, d_theta=datamodule.d_theta,
+                            _convert_ = "all")
+    elif cfg.task == "criticism":
+        # model the marginal density p(x)
+        embedding = instantiate(cfg.get("embedding"), d_x=datamodule.d_x) 
+        model = instantiate(cfg.model.mde, d_x = datamodule.d_x, _convert_ = "all",
+                            embedding=embedding)
+        
     if cfg.log:
         wandb.init(reinit=False)
         logger = WandbLogger(project="sim-select")
     else:
         logger = None
         
-    if cfg.train.stop_early:
-        callbacks = callbacks=[EarlyStopping(monitor="val_loss", mode="min", patience=cfg.train.patience)]
+    if cfg.callbacks.stop_early:
+        callbacks = callbacks=[EarlyStopping(monitor="val_loss", mode="min", patience=cfg.callbacks.patience)]
     else:
         callbacks = None
-    trainer = L.Trainer(max_epochs=cfg.train.max_epochs, logger=logger,
-                        devices=cfg.train.devices,
-                        log_every_n_steps=cfg.train.log_freq, callbacks=callbacks,
-                        fast_dev_run=cfg.fast_dev_run)
     
-
+    trainer = instantiate(cfg.trainer, logger=logger, callbacks=callbacks)
     trainer.fit(model, datamodule=datamodule)
-    posterior_params = model.predict_step(observed_data)
-    # TODO: save results to yaml
-    print(posterior_params)
+    
+    if cfg.task == "estimation":
+        posterior_params = model.predict_step(observed_data)
+        # TODO: save results to yaml
+        print(posterior_params)
+    elif cfg.task == "criticism":
+        # what is the output? marginal likelihood?
+        pass
 
 if __name__ == "__main__":
     main()

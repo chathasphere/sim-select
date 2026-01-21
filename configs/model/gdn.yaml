@@ -1,3 +1,9 @@
-_target_: src.model.GaussianDensityNetwork
-d_model: 32
+defaults:
+- base_model
+
+_target_: src.models.GaussianDensityNetwork
 mean_field: False
+encoder:
+  _target_: src.models.embedding.MLP
+  _partial_: True
+  hidden_features: [32, 32]
