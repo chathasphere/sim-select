@@ -5,7 +5,7 @@ import lightning as L
 class SimulatorModule(L.LightningDataModule):
     def __init__(self, dataset: Dataset, seed, batch_size, train_frac, task):
         super().__init__()
-        self.dataset = dataset
+        self.dataset = dataset(mode=task)
         self.seed = seed
         self.batch_size = batch_size
         self.train_frac = train_frac
@@ -17,6 +17,7 @@ class SimulatorModule(L.LightningDataModule):
         else:
             self.d_x = self.dataset[0].shape
             self.d_theta = None
+        assert len(self.d_x) == 2 # simulators should have output of shape (seq_len, features)
 
     
     def setup(self, stage):

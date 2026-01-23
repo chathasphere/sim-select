@@ -1,7 +1,8 @@
 defaults:
   - base_model
 
-_target_: src.neural_net.MarginalDensityEstimator
+_target_: src.models.MarginalDensityFlow
 transforms: 3
 d_model: [64, 64]
 flow_type: "NSF"
+embedding:

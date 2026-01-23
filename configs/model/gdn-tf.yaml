@@ -1,0 +1,12 @@
+defaults:
+  - base_model
+
+_target_: src.models.GaussianDensityNetwork
+mean_field: False
+
+encoder:
+  _target_: src.models.embedding.TransformerEmbedding
+  _partial_: True
+  n_blocks: 1
+  mode: encoder
+  d_model: 8

@@ -1,0 +1,9 @@
+defaults:
+  - mde
+
+embedding:
+  _target_: src.models.embedding.TransformerEmbedding
+  _partial_: True
+  n_blocks: 1
+  mode: embedding
+  d_model: 8

@@ -9,4 +9,4 @@ dataset:
   N: 100
   T: 52
   observed_seed: 9
-  partial_obs: False
+  partial_obs: True

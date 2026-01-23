@@ -2,25 +2,32 @@ import torch
 import math
 from torch.nn import Module, Linear, ReLU, TransformerEncoder, \
     TransformerEncoderLayer, LayerNorm
-from typing import Callable, Sequence
+from typing import Callable, Sequence, Union
+from math import prod
 
 
 class MLP(torch.nn.Sequential):
 
     def __init__(
         self,
-        in_features: int,
-        out_features: int,
+        d_input: Union[int, Sequence[int]],
+        d_output: int,
         hidden_features: Sequence[int] = (64, 64),
         activation: Callable[[], Module] = None,
         normalize: bool = False,
     ):
+        # aliasing
+        in_features, out_features = d_input, d_output
         if activation is None:
             activation = ReLU
 
         normalization = LayerNorm if normalize else lambda: None
 
         layers = []
+        
+        if isinstance(in_features, Sequence):
+            in_features = prod(in_features)
+
 
         for before, after in zip(
             (in_features, *hidden_features),
@@ -40,29 +47,50 @@ class MLP(torch.nn.Sequential):
         self.in_features = in_features
         self.out_features = out_features
         
+    def forward(self, x):
+        if len(x.shape) > 2: x = x.flatten(1)
+        return super().forward(x)
+        
+
+# TODO: two different modes for MLP, encode vs embed
+# for encode: target an "output_dim"
+# for embed, forgo the last transformation
+# for the mlp, if i'm not mistaken, it's sufficient to lose the last two
+# modules (last activation/last linear layer)
 
  
 class TransformerEmbedding(Module):
-    def __init__(self, d_x: int, d_emb: int, nhead: int = 8, 
-                 n_blocks: int = 1, dropout: float = 0):
+    def __init__(self, d_input: int, d_model: int, nhead: int = 8, 
+                 n_blocks: int = 1, dropout: float = 0, mode="embedding",
+                 d_output = None):
         super().__init__()
-        self.embed = Linear(d_x, d_emb)
-        self.pos_encode = PositionalEncoding(d_emb)
+        self.embed = Linear(d_input[0], d_model)
+        self.pos_encode = PositionalEncoding(d_model)
         encoder_layer = TransformerEncoderLayer(
-            d_model=d_emb, nhead=nhead, dropout=dropout,
-            batch_first=True, dim_feedforward=4*d_emb)
-        norm = LayerNorm(d_emb)
+            d_model=d_model, nhead=nhead, dropout=dropout,
+            batch_first=True, dim_feedforward=4*d_model)
+        norm = LayerNorm(d_model)
         self.transformer = TransformerEncoder(encoder_layer, n_blocks, norm)
+        if mode not in ("embedding", "encoder"):
+            raise ValueError(f"Mode {mode} not recognized")
+        self.mode = mode
+        self.d_model = d_model # transformer embedding dimension 
+        if mode == "encoder":
+            self.to_output = torch.nn.Sequential(ReLU(), Linear(d_model, d_output))
     
     
     def forward(self, x):
         # x should have shape (batch, seq, feature)
-        # may need to transpose
+        x = x.transpose(1,2)
         x = self.embed(x)
         x = self.pos_encode(x)
         x = self.transformer(x)
         # output should have shape (batch, )
-        return x.mean(dim=1)
+        x = x.mean(dim=1)
+        if self.mode == "embedding":
+            return x
+        else:
+            return self.to_output(x)
 
 
 

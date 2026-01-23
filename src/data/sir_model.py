@@ -49,7 +49,7 @@ class SIRModel(Simulator):
     def get_observed_data(self):
         theta_true = np.array([self.beta, self.gamma])
         x_o = self.simulate(theta_true, self.obs_seed)
-        return x_o.flatten().unsqueeze(0).float()
+        return x_o.unsqueeze(0).float()
     
     def simulate(self, theta, seed=None):
         beta, gamma = theta
@@ -81,10 +81,12 @@ class SIRModel(Simulator):
         sX = X.mean(1)
         sY = Y.mean(1)
         
+        
         if self.partial:
             data = sX # only incidence (new cases) is observed
+            data = data.reshape(1, -1)
         else:
-            data = np.stack([sX, sY]).flatten()
+            data = np.stack([sX, sY])
         
         return torch.tensor(data).float()
     

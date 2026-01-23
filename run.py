@@ -12,14 +12,12 @@ def main(cfg):
     observed_data = datamodule.dataset.get_observed_data()
     
     if cfg.task == "estimation":
-
+        # model the posterior p(theta | x)
         model = instantiate(cfg.model, d_x=datamodule.d_x, d_theta=datamodule.d_theta,
                             _convert_ = "all")
     elif cfg.task == "criticism":
         # model the marginal density p(x)
-        embedding = instantiate(cfg.get("embedding"), d_x=datamodule.d_x) 
-        model = instantiate(cfg.model.mde, d_x = datamodule.d_x, _convert_ = "all",
-                            embedding=embedding)
+        model = instantiate(cfg.model, d_x = datamodule.d_x, _convert_ = "all")
         
     if cfg.log:
         wandb.init(reinit=False)

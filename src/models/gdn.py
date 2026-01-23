@@ -11,7 +11,6 @@ class GaussianDensityNetwork(L.LightningModule):
     def __init__(self, d_x, d_theta, optimizer:torch.optim.Optimizer,
                  encoder:torch.nn.Module, mean_field):
         super().__init__()
-        self.estimator = "gdn"
         # compute number of outputs
         self.dim = d_theta[0]
         self.optimizer = optimizer
@@ -24,8 +23,7 @@ class GaussianDensityNetwork(L.LightningModule):
         self.mean_field = mean_field
         self.val_losses = []
         # will this work with partial instantiation?
-        if len(d_x) == 1: d_x = d_x[0]
-        self.encoder = encoder(d_x, d_output)
+        self.encoder = encoder(d_input=d_x, d_output=d_output)
 
 
     def forward(self, x):
@@ -89,23 +87,6 @@ class GaussianDensityNetwork(L.LightningModule):
         return mu, sigma
 
 
-# class GaussianDensityNetwork(GaussianDensityNetworkBase):
-#     def __init__(self, d_x, d_theta, d_model, optimizer,
-#                  mean_field):
-#         super().__init__(d_theta, optimizer, mean_field)
-
-        
-#         first_dim = d_x[0]
-
-#         # TODO: do we need more flexibility in terms of layer widths?
-#         # disadvantage is that the API becomes cumbersome if so
-
-#         self.mean_field = mean_field
-#         self.val_losses = []
-
-        
-#     def encoder(self, x):
-#         return self.ff(x)
     
     
 # class GaussianDensityTransformer(GaussianDensityNetworkBase):
