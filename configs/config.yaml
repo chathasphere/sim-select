@@ -1,12 +1,16 @@
 defaults:
   - _self_
   - data: sir
-  - model: gdn
+  - model: mde
   - trainer: default
 
-task: estimation # criticism
+task: criticism
 
 log: True
+
+c2st:
+  check: True
+  tol: 0.1
 
 callbacks:
   stop_early: True

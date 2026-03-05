@@ -8,6 +8,7 @@ import glob
 from sklearn.datasets import make_moons
 from omegaconf import OmegaConf
 from omegaconf.listconfig import ListConfig
+from functools import partial
 
 
     
@@ -104,3 +105,11 @@ class MoonsDataset(Dataset):
     
     def __getitem__(self, index):
         return self.data[index]
+    
+def discrete_noiser(distr):
+    if distr == "uniform":
+        return partial(np.random.uniform, low=-0.5, high=0.5)
+    elif distr == "normal":
+        return partial(np.random.normal, scale=0.25)
+    else:
+        raise ValueError(f"Distribution {distr} not recognized")

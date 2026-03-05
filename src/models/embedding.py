@@ -46,17 +46,14 @@ class MLP(torch.nn.Sequential):
 
         self.in_features = in_features
         self.out_features = out_features
+        # needed for compatbility with MDE
+        self.d_model = out_features
         
     def forward(self, x):
         if len(x.shape) > 2: x = x.flatten(1)
         return super().forward(x)
         
 
-# TODO: two different modes for MLP, encode vs embed
-# for encode: target an "output_dim"
-# for embed, forgo the last transformation
-# for the mlp, if i'm not mistaken, it's sufficient to lose the last two
-# modules (last activation/last linear layer)
 
  
 class TransformerEmbedding(Module):

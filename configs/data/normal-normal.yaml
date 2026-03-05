@@ -1,0 +1,12 @@
+default:
+  - base-simulator
+
+dataset:
+  _target_: src.data.toy_models.NormalNormal
+  _partial_: True
+  N: 100
+  prior_mu: 0
+  prior_sigma: 5
+  dim: 2
+  true_sigma: 1.414
+  observed_seed: 11

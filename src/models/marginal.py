@@ -16,7 +16,10 @@ class MarginalDensityFlow(L.LightningModule):
         
         if embedding is None:
             self.embed = torch.nn.Identity()
-            features = prod(d_x)
+            try:
+                features = prod(d_x)
+            except TypeError:
+                features = d_x
         else:
             self.embed = embedding(d_input = d_x)
             features = self.embed.d_model
@@ -37,16 +40,19 @@ class MarginalDensityFlow(L.LightningModule):
         pass
     
     def sample(self, n):
-        return self.flow().n_sample(n)
+        return self.flow().sample((n,))
     
-    def training_step(self, batch, batch_idx):
+    def log_prob(self, x):
+        return self.flow().log_prob(x)
+    
+    def training_step(self, batch, batch_idx=None):
         x = self.embed(batch)
         if len(x.shape) > 2: x = x.flatten(1)
         loss = -self.flow().log_prob(x).mean()
         self.log("train_loss", loss, prog_bar=True)
         return loss
         
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx=None):
         x = self.embed(batch)
         if len(x.shape) > 2: x = x.flatten(1)
         loss = -self.flow().log_prob(x).mean()
@@ -61,3 +67,7 @@ class MarginalDensityFlow(L.LightningModule):
     def configure_optimizers(self):
         return self.optimizer(params = self.parameters())
 
+    def predict_step(self, batch, batch_idx=None):
+        x = self.embed(batch)
+        # alternatively, return both 
+        return x, self.log_prob(x)

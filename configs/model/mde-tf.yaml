@@ -7,3 +7,4 @@ embedding:
   n_blocks: 1
   mode: embedding
   d_model: 8
+  nhead: 4

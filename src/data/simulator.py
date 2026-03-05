@@ -2,9 +2,8 @@ from torch.utils.data import Dataset
 
 
 class Simulator(Dataset):
-    def __init__(self, n_sample, name, mode=None):
+    def __init__(self, n_sample, mode=None):
         self.n_sample = n_sample
-        self.name = name
         self.data = None
         self.theta = None
         self.mode = mode

@@ -17,7 +17,7 @@ class SimulatorModule(L.LightningDataModule):
         else:
             self.d_x = self.dataset[0].shape
             self.d_theta = None
-        assert len(self.d_x) == 2 # simulators should have output of shape (seq_len, features)
+        # assert len(self.d_x) == 2 # simulators should have output of shape (seq_len, features)
 
     
     def setup(self, stage):
@@ -30,6 +30,10 @@ class SimulatorModule(L.LightningDataModule):
                 torch.Generator().manual_seed(self.seed)
         )
         self.val_size = val_size
+        
+    
+    def get_validation_set(self):
+        return self.dataset[self.val.indices]
     
 
 

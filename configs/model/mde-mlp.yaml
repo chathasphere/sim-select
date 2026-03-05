@@ -1,0 +1,8 @@
+defaults:
+  - mde
+
+embedding:
+  _target_: src.models.embedding.MLP
+  _partial_: True
+  hidden_features: [64, 16]
+  d_output: 4
