@@ -11,4 +11,8 @@ dataset:
   T: 10 # 52
   observed_seed: 9
   partial_obs: True
-  noise: uniform
+  noise: 
+    distr: uniform
+    low: -0.5
+    high: 0.5
+    scale: 0.5

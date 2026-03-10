@@ -1,0 +1,4 @@
+defaults:
+  - sir
+
+constant_hazard: 20

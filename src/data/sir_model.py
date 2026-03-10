@@ -4,13 +4,13 @@ import numpy as np
 from torch.distributions import Gamma
 from src.utils import discrete_noiser
 
+
+
 class SIRModel(Simulator):
     def __init__(self, beta, gamma, N, T, prior_scale, n_sample=None,
                  observed_seed=None, partial_obs=False, mode="estimation", noise=None,
-                 constant_hazard=0, delta=0):
+                 constant_hazard=0, initialize_samples=True):
         super().__init__(n_sample, mode)
-        self.beta = beta
-        self.gamma = gamma
         self.N = N
         self.T = T
         self.obs_seed = observed_seed
@@ -18,52 +18,44 @@ class SIRModel(Simulator):
         self.partial = partial_obs
         # TODO: save simulated data
         if noise is not None:
-            self.noiser = discrete_noiser(noise)
+            self.noiser = discrete_noiser(**noise)
         else:
             self.noiser = None
         self.constant_hazard = constant_hazard
-        self.delta = delta # defines reinfection rate
+        self.theta_true = np.array([beta, gamma])
+        if initialize_samples:
+            self.data, self.theta = self.sample_model()
+        else:
+            self.data, self.theta = None, None
         
             
         # TODO: compatibility with transformers
-
-        
-        self.data, self.theta = self.sample_model()
         
         
     def sample_model(self):
-        # consider making this a method of the parent class
-        # the logic is pretty generic...
-        thetas = self.sample_prior(self.n_sample, 7)
-        ds = [] # list of simulated data sets
-        for i in range(self.n_sample):
-            random_seed = 7 * i # decorrelate random samples
-            sim = self.simulate(
-                thetas[i], random_seed
-            )
-            ds.append(sim)
-        
-        ds = torch.stack(ds).float()
-        
-        # move parameters to the log scale
+        ds, thetas = super().sample_model()
         return ds, torch.log(thetas.float())
+        
         
     def sample_prior(self, N, seed=None):
         if seed: torch.manual_seed(seed)
         prior = Gamma(1, 1 / torch.tensor(self.prior_scale))
         return prior.sample((N,))
     
-    def get_observed_data(self):
-        theta_true = np.array([self.beta, self.gamma])
-        x_o = self.simulate(theta_true, self.obs_seed)
-        return x_o.unsqueeze(0).float()
     
     def simulate(self, theta, seed=None):
         beta, gamma = theta
+        return self._simulate_sir(beta, gamma, 0, seed)
+
+    
+    
+    def _simulate_sir(self, beta, gamma, delta, seed):
+        
         N, T = self.N, self.T
         
         X = np.zeros((T+1, N))
         Y = np.zeros((T+1, N))
+        A = np.zeros(N)
         
         # initialize infecteds
         n_init = int(0.02 * N)
@@ -72,8 +64,10 @@ class SIRModel(Simulator):
         if seed is not None: np.random.seed(seed)
         
         for t in range(1, T+1):
-            S = (1 - X[t-1]) * (1 - Y[t-1])
-            I = X[t-1] * (1 - Y[t-1])
+            S = (1 - (X[t-1] - A)) * (1 - (Y[t-1] - A))
+            I = (X[t-1] - A) * (1 - (Y[t-1] - A))
+            R = Y[t-1] - A
+            assert (S + I + R).sum() == N
 
             # simulate infections
             if self.constant_hazard:
@@ -81,11 +75,16 @@ class SIRModel(Simulator):
             else:
                 lam = beta * I.sum() / N
             p_i = 1 - np.exp(-lam)
-            X[t] = np.where(S, np.random.binomial(1, p_i, N), X[t-1])
-            
+            X[t] = np.where(S, X[t-1] + np.random.binomial(1, p_i, N), X[t-1])
             # simulate recoveries
-            p_r = 1 - np.exp(-gamma)
-            Y[t] = np.where(I, np.random.binomial(1, p_r, N), Y[t-1])
+            if gamma:
+                p_r = 1 - np.exp(-gamma)
+                Y[t] = np.where(I, Y[t-1] + np.random.binomial(1, p_r, N), Y[t-1])
+            
+            # simulate loss of immunity
+            if delta:
+                p_s = 1 - np.exp(-delta)
+                A = np.where(R, A + np.random.binomial(1, p_s, N), A)
         
         # drop T=0 (it's fixed)   
         X = X[1:]
@@ -109,4 +108,31 @@ class SIRModel(Simulator):
         return torch.tensor(data).float()
     
     
+class SIRSModel(SIRModel):
+    def __init__(self, beta, gamma, delta, N, T, prior_scale, n_sample=None,
+                 observed_seed=None, partial_obs=False, mode="estimation", noise=None):
+        
+        super().__init__(beta, gamma, N, T, prior_scale, n_sample,
+                 observed_seed, partial_obs, mode, noise, initialize_samples=False)
+        
+        self.theta_true = np.array([beta, gamma, delta])
+        self.data, self.theta = self.sample_model()
+        
+    def simulate(self, theta, seed=None):
+        beta, gamma, delta =  theta
+        return self._simulate_sir(beta, gamma, delta, seed)
+        
+       
+class SIModel(SIRModel):
+    def __init__(self, beta, N, T, prior_scale, n_sample=None,
+                observed_seed=None, mode="estimation", noise=None):
     
+        super().__init__(beta, 0, N, T, prior_scale, n_sample,
+                    observed_seed, True, mode, noise, initialize_samples=False)
+    
+        self.theta_true = np.array([beta])
+        self.data, self.theta = self.sample_model()
+        
+    def simulate(self, theta, seed=None):
+        beta =  theta
+        return self._simulate_sir(beta, 0, 0, seed)

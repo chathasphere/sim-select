@@ -1,0 +1,6 @@
+defaults:
+  - sir
+
+dataset:
+  _target_: src.data.sir_model.SIRSModel
+  delta: 0.25

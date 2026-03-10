@@ -106,10 +106,10 @@ class MoonsDataset(Dataset):
     def __getitem__(self, index):
         return self.data[index]
     
-def discrete_noiser(distr):
+def discrete_noiser(distr, low=-0.5, high=0.5, scale=.25):
     if distr == "uniform":
-        return partial(np.random.uniform, low=-0.5, high=0.5)
+        return partial(np.random.uniform, low=low, high=high)
     elif distr == "normal":
-        return partial(np.random.normal, scale=0.25)
+        return partial(np.random.normal, scale=scale)
     else:
         raise ValueError(f"Distribution {distr} not recognized")

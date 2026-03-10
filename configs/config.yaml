@@ -2,7 +2,7 @@ defaults:
   - _self_
   - data: sir
   - model: mde
-  - trainer: default
+  - trainer: debugging
 
 task: criticism
 
