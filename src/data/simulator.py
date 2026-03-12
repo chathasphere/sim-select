@@ -1,5 +1,6 @@
 from torch.utils.data import Dataset
 import torch
+from hydra.utils import get_original_cwd
 
 class Simulator(Dataset):
     def __init__(self, n_sample, mode=None):
@@ -8,6 +9,7 @@ class Simulator(Dataset):
         self.theta = None
         self.theta_true = None
         self.mode = mode
+        self.name = None
 
     def __len__(self):
         return self.n_sample
@@ -31,7 +33,16 @@ class Simulator(Dataset):
         x_o = self.simulate(self.theta_true, self.obs_seed)
         return x_o.unsqueeze(0).float()
     
-    def sample_model(self):
+    def sample_model(self, load_data=False):
+        if load_data:
+            try:
+                return self.load_data()
+            except FileNotFoundError:
+                print("Saved simulations not found!")
+        print("Simulating samples...")
+        return self._sample_model()
+    
+    def _sample_model(self):
         # consider making this a method of the parent class
         # the logic is pretty generic...
         thetas = self.sample_prior(self.n_sample, 7)
@@ -46,7 +57,16 @@ class Simulator(Dataset):
         ds = torch.stack(ds).float()
         
         # move parameters to the log scale
-        return ds, torch.log(thetas.float())
+        return ds, thetas.float()
     
-    def evaluate(self, posterior_params):
-        pass
+    def load_data(self):
+        prefix = get_original_cwd()
+        data = torch.load(f"{prefix}/simulated_data/{self.name}_data_{self.n_sample}.pt")
+        theta = torch.load(f"{prefix}/simulated_data/{self.name}_theta_{self.n_sample}.pt")
+        return data, theta
+    
+    
+    def save_data(self):
+        prefix = get_original_cwd()
+        torch.save(self.data, f"{prefix}/simulated_data/{self.name}_data_{self.n_sample}.pt")
+        torch.save(self.theta, f"{prefix}/simulated_data/{self.name}_theta_{self.n_sample}.pt")

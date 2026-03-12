@@ -1,8 +1,8 @@
 defaults:
-  - _self_
   - data: sir
   - model: mde
-  - trainer: debugging
+  - trainer: default
+  - _self_
 
 task: criticism
 
@@ -19,3 +19,12 @@ callbacks:
 hydra:
   job:
     chdir: True
+
+
+# debugging settings
+# data:
+#   dataset:
+#     n_sample: 200
+#     load_data: False
+# trainer:
+#   fast_dev_run: True

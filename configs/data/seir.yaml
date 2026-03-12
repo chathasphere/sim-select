@@ -2,11 +2,12 @@ defaults:
   - base-simulator
 
 dataset:
-  _target_: src.data.sir_model.SIRModel
+  _target_: src.data.seir_model.SEIRModel
   _partial_: True
   beta: 1.5 # 0.3
+  sigma: 1.
   gamma: .5 # 0.1
-  prior_scale: [1, 1]
+  prior_scale: [1, 1, 1]
   N: 100
   T: 10 # 52
   observed_seed: 9

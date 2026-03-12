@@ -7,4 +7,4 @@ seed: 11 # random seed for training/validation split
 dataset:
   _target_: src.data.simulator.Simulator
   _partial_: True
-  n_sample: 2000 # 1000
+  n_sample: 4000

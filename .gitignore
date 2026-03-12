@@ -14,3 +14,4 @@ experiments.md
 *.pt
 notebooks/old
 .pytest_cache
+simulated_data/

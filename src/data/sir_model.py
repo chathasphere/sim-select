@@ -9,7 +9,7 @@ from src.utils import discrete_noiser
 class SIRModel(Simulator):
     def __init__(self, beta, gamma, N, T, prior_scale, n_sample=None,
                  observed_seed=None, partial_obs=False, mode="estimation", noise=None,
-                 constant_hazard=0, initialize_samples=True):
+                 constant_hazard=0, load_data=False):
         super().__init__(n_sample, mode)
         self.N = N
         self.T = T
@@ -23,18 +23,18 @@ class SIRModel(Simulator):
             self.noiser = None
         self.constant_hazard = constant_hazard
         self.theta_true = np.array([beta, gamma])
-        if initialize_samples:
-            self.data, self.theta = self.sample_model()
-        else:
-            self.data, self.theta = None, None
-        
+        self.name = "SIR"
+        self.data, self.theta = self.sample_model(load_data)
+        if load_data:
+            self.save_data()
             
         # TODO: compatibility with transformers
         
         
-    def sample_model(self):
-        ds, thetas = super().sample_model()
-        return ds, torch.log(thetas.float())
+    def sample_model(self, load_data):
+        ds, thetas = super().sample_model(load_data)
+        # TODO: move thetas to the log scale to help with parameter estimation
+        return ds, thetas.float()
         
         
     def sample_prior(self, N, seed=None):
@@ -110,28 +110,30 @@ class SIRModel(Simulator):
     
 class SIRSModel(SIRModel):
     def __init__(self, beta, gamma, delta, N, T, prior_scale, n_sample=None,
-                 observed_seed=None, partial_obs=False, mode="estimation", noise=None):
+                 observed_seed=None, partial_obs=False, mode="estimation", noise=None,
+                 load_data=False):
         
         super().__init__(beta, gamma, N, T, prior_scale, n_sample,
-                 observed_seed, partial_obs, mode, noise, initialize_samples=False)
+                 observed_seed, partial_obs, mode, noise, load_data)
         
         self.theta_true = np.array([beta, gamma, delta])
-        self.data, self.theta = self.sample_model()
         
     def simulate(self, theta, seed=None):
         beta, gamma, delta =  theta
+        self.name = "SIRS"
         return self._simulate_sir(beta, gamma, delta, seed)
         
-       
+
 class SIModel(SIRModel):
     def __init__(self, beta, N, T, prior_scale, n_sample=None,
-                observed_seed=None, mode="estimation", noise=None):
+                observed_seed=None, mode="estimation", noise=None,
+                load_data=False):
     
         super().__init__(beta, 0, N, T, prior_scale, n_sample,
-                    observed_seed, True, mode, noise, initialize_samples=False)
+                    observed_seed, True, mode, noise, load_data)
     
         self.theta_true = np.array([beta])
-        self.data, self.theta = self.sample_model()
+        self.name = "SI"
         
     def simulate(self, theta, seed=None):
         beta =  theta

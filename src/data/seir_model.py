@@ -6,7 +6,8 @@ from src.utils import discrete_noiser
 
 class SEIRModel(Simulator):
     def __init__(self, beta, sigma, gamma, N, T, prior_scale, n_sample=None,
-                 observed_seed=None, partial_obs=False, mode="estimation", noise=None):
+                 observed_seed=None, partial_obs=False, mode="estimation", noise=None,
+                 load_data=False):
         super().__init__(n_sample, mode)
         self.beta = beta
         self.sigma = sigma
@@ -21,14 +22,15 @@ class SEIRModel(Simulator):
             self.noiser = discrete_noiser(**noise)
         else:
             self.noiser = None
-            
+        self.name = "SEIR"
         self.theta_true = np.array([beta, sigma, gamma])
-        self.data, self.theta = self.sample_model()
+        self.data, self.theta = self.sample_model(load_data)
         
         
-    def sample_model(self):
-        ds, thetas = super().sample_model()
-        return ds, torch.log(thetas.float())
+    def sample_model(self, load_data):
+        ds, thetas = super().sample_model(load_data)
+        # consider moving thetas to the log scale
+        return ds, thetas.float()
         
     def sample_prior(self, N, seed=None):
         if seed: torch.manual_seed(seed)
@@ -56,10 +58,14 @@ class SEIRModel(Simulator):
             R = Y[t-1]
             assert (S + E + I + R).sum() == N
 
-            # simulate infections
+            # simulate exposure
             lam = beta * I.sum() / N
-            p_i = 1 - np.exp(-lam)
-            X[t] = np.where(S, np.random.binomial(1, p_i, N), X[t-1])
+            p_e = 1 - np.exp(-lam)
+            W = np.where(S, np.random.binomial(1, p_e, N), W)
+            
+            # simulate infections
+            p_i = 1 - np.exp(-sigma)
+            X[t] = np.where(E, np.random.binomial(1, p_i, N), X[t-1])
             
             # simulate recoveries
             p_r = 1 - np.exp(-gamma)

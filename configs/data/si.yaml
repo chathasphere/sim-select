@@ -1,4 +1,6 @@
 defaults:
   - sir
 
-gamma: 0
+dataset:
+  _target_: src.data.sir_model.SIModel
+  gamma: 0
