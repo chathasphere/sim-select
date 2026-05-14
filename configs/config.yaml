@@ -1,10 +1,10 @@
 defaults:
   - data: sir
-  - model: mde
+  - model: npe # mde
   - trainer: default
   - _self_
 
-task: criticism
+task: estimation # criticism
 
 log: True
 

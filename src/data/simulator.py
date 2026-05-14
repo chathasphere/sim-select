@@ -16,7 +16,7 @@ class Simulator(Dataset):
     
     def __getitem__(self, index):
         if self.mode == "estimation":
-            return self.data[index], self.theta[index]
+            return self.theta[index], self.data[index]
         elif self.mode == "criticism":
             return self.data[index]
         else:
@@ -55,9 +55,9 @@ class Simulator(Dataset):
             ds.append(sim)
         
         ds = torch.stack(ds).float()
-        
-        # move parameters to the log scale
-        return ds, thetas.float()
+        thetas = thetas.float()
+        self.save_data(ds, thetas)
+        return ds, thetas
     
     def load_data(self):
         prefix = get_original_cwd()
@@ -66,7 +66,7 @@ class Simulator(Dataset):
         return data, theta
     
     
-    def save_data(self):
+    def save_data(self, data, theta):
         prefix = get_original_cwd()
-        torch.save(self.data, f"{prefix}/simulated_data/{self.name}_data_{self.n_sample}.pt")
-        torch.save(self.theta, f"{prefix}/simulated_data/{self.name}_theta_{self.n_sample}.pt")
+        torch.save(data, f"{prefix}/simulated_data/{self.name}_data_{self.n_sample}.pt")
+        torch.save(theta, f"{prefix}/simulated_data/{self.name}_theta_{self.n_sample}.pt")

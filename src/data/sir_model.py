@@ -25,16 +25,17 @@ class SIRModel(Simulator):
         self.theta_true = np.array([beta, gamma])
         self.name = "SIR"
         self.data, self.theta = self.sample_model(load_data)
-        if load_data:
-            self.save_data()
+        # if load_data:
+        #     self.save_data()
             
         # TODO: compatibility with transformers
         
         
     def sample_model(self, load_data):
         ds, thetas = super().sample_model(load_data)
+        # ds, thetas = self._sample_model()
         # TODO: move thetas to the log scale to help with parameter estimation
-        return ds, thetas.float()
+        return ds, torch.log(thetas).float()
         
         
     def sample_prior(self, N, seed=None):
@@ -106,6 +107,24 @@ class SIRModel(Simulator):
             data = np.stack([sX, sY])
         
         return torch.tensor(data).float()
+    
+    
+    # def _sample_model(self):
+    #     # consider making this a method of the parent class
+    #     # the logic is pretty generic...
+    #     thetas = self.sample_prior(self.n_sample, 7)
+    #     ds = [] # list of simulated data sets
+    #     for i in range(self.n_sample):
+    #         random_seed = 7 * i # decorrelate random samples
+    #         sim = self.simulate(
+    #             thetas[i], random_seed
+    #         )
+    #         ds.append(sim)
+        
+    #     ds = torch.stack(ds).float()
+        
+    #     # move parameters to the log scale
+    #     return ds, thetas.float()
     
     
 class SIRSModel(SIRModel):

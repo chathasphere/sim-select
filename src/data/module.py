@@ -13,7 +13,7 @@ class SimulatorModule(L.LightningDataModule):
             raise ValueError("Invalid Training Task")
         self.task = task
         if self.task == "estimation":
-            self.d_x, self.d_theta = self.dataset[0][0].shape, self.dataset[0][1].shape
+            self.d_theta, self.d_x = self.dataset[0][0].shape, self.dataset[0][1].shape
         else:
             self.d_x = self.dataset[0].shape
             self.d_theta = None

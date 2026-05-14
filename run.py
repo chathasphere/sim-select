@@ -39,15 +39,15 @@ def main(cfg):
     trainer.fit(model, datamodule=datamodule)
     results = {}
     if cfg.task == "estimation":
-        posterior_params = model.predict_step(observed_data)
+        model.predict_step(observed_data)
         # TODO: save results to yaml
-        print(posterior_params)
     elif cfg.task == "criticism":
         x_val, mll_val = trainer.predict(model, datamodule.val_dataloader())[0]
         if cfg.c2st.check:
             # apply two sample classification test
             samples = model.sample(x_val.shape[0])
             if len(x_val.shape) > 2: x_val = x_val.flatten(1)
+            # TODO: figure out how to make the score less noisy. Or at least reproducible
             c2st_score = c2st(x_val, samples)
             if (0.5 - cfg.c2st.tol) <= c2st_score <= (0.5 + cfg.c2st.tol):
                 print(f"Marginal Density Estimator converged with score {c2st_score:.2f}")

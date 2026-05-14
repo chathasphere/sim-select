@@ -1,0 +1,8 @@
+defaults:
+- base_model
+
+_target_: src.models.NeuralPosteriorEstimator
+transforms: 4
+d_model: [64, 64]
+flow_type: MAF
+embedding: 

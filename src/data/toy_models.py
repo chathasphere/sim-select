@@ -2,6 +2,7 @@ from .simulator import Simulator
 import torch
 import numpy as np
 from torch.distributions import Normal
+import math
 
 class NormalNormal(Simulator):
     def __init__(self, N, prior_mu, prior_sigma, observed_seed, 
@@ -57,4 +58,24 @@ class NormalNormal(Simulator):
         x_o = self.simulate(theta_true, self.obs_seed, self.true_sigma)
         return x_o.unsqueeze(0).float()
         
-        
+
+
+class ConditionalMoonsDataset(Simulator):
+    # test data set for conditional normalizing flows
+    def __init__(self, n_sample):
+        super().__init__(n_sample, "estimation")
+        self.data, self.theta = self.sample_model()
+         
+    def sample_model(self):
+        np.random.seed(8)
+        theta = np.random.uniform(-1, 1, (2, self.n_sample))
+        a = np.random.uniform(low=-math.pi/2, high=math.pi/2, size=self.n_sample)
+        r = np.random.normal(loc=0.1, scale=0.01, size=self.n_sample)
+        p = np.stack([r * np.cos(a) + 0.25, r * np.sin(a)])
+        b0 = - np.abs(theta[0] + theta[1]) / math.sqrt(2)
+        b1 = (-theta[0] + theta[1]) / math.sqrt(2)
+        x = np.stack([p[0] + b0, p[1] + b1])
+        return torch.tensor(x.T).float(), torch.tensor(theta.T).float()
+    
+    def get_observed_data(self):
+        return torch.tensor([0,0]).unsqueeze(0).float()

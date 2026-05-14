@@ -11,18 +11,11 @@ from math import prod
 class MarginalDensityFlow(L.LightningModule):
     # coupling flow with affine transformations
     def __init__(self, d_x: int, transforms: int, optimizer:torch.optim.Optimizer,
-                d_model: tuple[int, ...]=(64,64), flow_type: str ="NSF", embedding: Module = None):
+                d_model: tuple[int, ...]=(64,64), flow_type: str ="NSF"):
         super().__init__()
         
-        if embedding is None:
-            self.embed = torch.nn.Identity()
-            try:
-                features = prod(d_x)
-            except TypeError:
-                features = d_x
-        else:
-            self.embed = embedding(d_input = d_x)
-            features = self.embed.d_model
+        if type(d_x) is torch.Size:
+            features = prod(d_x)
         
         if flow_type == "NSF":
             self.flow = NSF(features=features, transforms=transforms, hidden_features=d_model) 
@@ -35,8 +28,8 @@ class MarginalDensityFlow(L.LightningModule):
         self.val_losses = []
         
         
-    def forward(self, x=None):
-        # not really defined for a Zuko flow
+    def forward(self, c=None):
+        # not defined for a marginal flow
         pass
     
     def sample(self, n):
@@ -45,15 +38,17 @@ class MarginalDensityFlow(L.LightningModule):
     def log_prob(self, x):
         return self.flow().log_prob(x)
     
+    
+    
     def training_step(self, batch, batch_idx=None):
-        x = self.embed(batch)
+        x = batch
         if len(x.shape) > 2: x = x.flatten(1)
         loss = -self.flow().log_prob(x).mean()
         self.log("train_loss", loss, prog_bar=True)
         return loss
         
     def validation_step(self, batch, batch_idx=None):
-        x = self.embed(batch)
+        x = batch
         if len(x.shape) > 2: x = x.flatten(1)
         loss = -self.flow().log_prob(x).mean()
         self.log("val_loss", loss, prog_bar=True)
@@ -68,6 +63,6 @@ class MarginalDensityFlow(L.LightningModule):
         return self.optimizer(params = self.parameters())
 
     def predict_step(self, batch, batch_idx=None):
-        x = self.embed(batch)
+        x = batch
         # alternatively, return both 
         return x, self.log_prob(x)

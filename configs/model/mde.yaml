@@ -2,7 +2,6 @@ defaults:
   - base_model
 
 _target_: src.models.MarginalDensityFlow
-transforms: 3
+transforms: 4
 d_model: [64, 64]
-flow_type: MAF # "NSF"
-embedding:
+flow_type: MAF

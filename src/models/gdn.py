@@ -44,7 +44,7 @@ class GaussianDensityNetwork(L.LightningModule):
         return mu, sigma
     
     def training_step(self, batch, batch_idx):
-        x, theta = batch
+        theta, x = batch
         mu, sigma = self(x)
         loss = self.gaussiannll(theta, mu, sigma)
         self.log("train_loss", loss)
@@ -52,7 +52,7 @@ class GaussianDensityNetwork(L.LightningModule):
 
     
     def validation_step(self, batch, batch_idx):
-        x, theta = batch
+        theta, x = batch
         assert len(theta.shape) > 1
         mu, sigma = self(x)
         loss = self.gaussiannll(theta, mu, sigma)
