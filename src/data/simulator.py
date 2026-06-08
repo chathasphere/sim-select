@@ -34,15 +34,17 @@ class Simulator(Dataset):
         return x_o.unsqueeze(0).float()
     
     def sample_model(self, load_data=False):
+        save=False
         if load_data:
             try:
                 return self.load_data()
             except FileNotFoundError:
                 print("Saved simulations not found!")
+                save = True
         print("Simulating samples...")
-        return self._sample_model()
+        return self._sample_model(save=False)
     
-    def _sample_model(self):
+    def _sample_model(self, save=False):
         # consider making this a method of the parent class
         # the logic is pretty generic...
         thetas = self.sample_prior(self.n_sample, 7)
@@ -56,7 +58,8 @@ class Simulator(Dataset):
         
         ds = torch.stack(ds).float()
         thetas = thetas.float()
-        self.save_data(ds, thetas)
+        if save:
+            self.save_data(ds, thetas)
         return ds, thetas
     
     def load_data(self):

@@ -1,0 +1,16 @@
+defaults:
+  - base-simulator
+
+dataset:
+  _target_: src.data.sir_model.HetSIRModel
+  _partial_: True
+  betas: [0.67, 1, 1.5, 2.25, 3]
+  gamma: 1
+  prior_scale: [1, 1, 1, 1, 1, 1]
+  N: 200
+  T: 10
+  observed_seed: 9
+  load_data: True
+  noise:
+    distr: normal
+    scale: 2

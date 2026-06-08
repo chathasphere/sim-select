@@ -16,6 +16,8 @@ class MarginalDensityFlow(L.LightningModule):
         
         if type(d_x) is torch.Size:
             features = prod(d_x)
+        else:
+            features = d_x
         
         if flow_type == "NSF":
             self.flow = NSF(features=features, transforms=transforms, hidden_features=d_model) 
