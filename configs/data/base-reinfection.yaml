@@ -1,0 +1,22 @@
+defaults:
+  - base-simulator
+
+dataset:
+  _target_: src.data.reinfection.BaseReinfectionModel
+  _partial_: True
+  init_I: 1
+  init_S: 277
+  beta:
+    _target_: torch.distributions.Exponential
+    rate: 0.2
+  epsilon:
+    _target_: torch.distributions.Exponential
+    rate: 2
+  nu:
+    _target_: torch.distributions.Exponential
+    rate: 2
+  rho:
+    _target_: torch.distributions.Uniform
+    low: 0.5
+    high: 0.99
+  notebook: False
