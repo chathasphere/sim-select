@@ -16,7 +16,7 @@ class NormalNormal(Simulator):
         self.true_sigma = true_sigma
         self.false_sigma = false_sigma if false_sigma else true_sigma
 
-        self.data, self.theta = self.sample_model()
+        # self.data, self.theta = self.sample_model()
         
     def sample_model(self):
         thetas = self.sample_prior(self.n_sample, 10)
@@ -64,7 +64,7 @@ class ConditionalMoonsDataset(Simulator):
     # test data set for conditional normalizing flows
     def __init__(self, n_sample):
         super().__init__(n_sample, "estimation")
-        self.data, self.theta = self.sample_model()
+        # self.data, self.theta = self.sample_model()
          
     def sample_model(self):
         np.random.seed(8)

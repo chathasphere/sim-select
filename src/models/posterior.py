@@ -14,11 +14,11 @@ class NeuralPosteriorEstimator(L.LightningModule):
         super().__init__()
         
         features = d_theta
+        if type(d_theta) is torch.Size:
+            features = d_theta[0]
         context = d_x
         if embedding is None:
             self.embed = torch.nn.Identity()
-            if type(d_theta) is torch.Size:
-                features = d_theta[0]
             if type(d_x) is torch.Size:
                 context = prod(d_x)
         else:

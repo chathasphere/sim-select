@@ -58,8 +58,7 @@ class MLP(torch.nn.Sequential):
  
 class TransformerEmbedding(Module):
     def __init__(self, d_input: int, d_model: int, nhead: int = 8, 
-                 n_blocks: int = 1, dropout: float = 0, mode="embedding",
-                 d_output = None):
+                 n_blocks: int = 1, dropout: float = 0):
         super().__init__()
         self.embed = Linear(d_input[0], d_model)
         self.pos_encode = PositionalEncoding(d_model)
@@ -68,12 +67,8 @@ class TransformerEmbedding(Module):
             batch_first=True, dim_feedforward=4*d_model)
         norm = LayerNorm(d_model)
         self.transformer = TransformerEncoder(encoder_layer, n_blocks, norm)
-        if mode not in ("embedding", "encoder"):
-            raise ValueError(f"Mode {mode} not recognized")
-        self.mode = mode
         self.d_model = d_model # transformer embedding dimension 
-        if mode == "encoder":
-            self.to_output = torch.nn.Sequential(ReLU(), Linear(d_model, d_output))
+
     
     
     def forward(self, x):
@@ -83,12 +78,7 @@ class TransformerEmbedding(Module):
         x = self.pos_encode(x)
         x = self.transformer(x)
         # output should have shape (batch, )
-        x = x.mean(dim=1)
-        if self.mode == "embedding":
-            return x
-        else:
-            return self.to_output(x)
-
+        return x.mean(dim=1)
 
 
 class PositionalEncoding(torch.nn.Module):

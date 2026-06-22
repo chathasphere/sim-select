@@ -10,7 +10,7 @@ from src.utils import discrete_noiser
 class SIRModel(Simulator):
     def __init__(self, beta, gamma, N, T, prior_scale, n_sample,
                  observed_seed=None, partial_obs=False, mode="estimation", noise=None,
-                 constant_hazard=0, load_data=False, p_init=0.02):
+                 constant_hazard=0, load_data=False, p_init=0.02, sample=True):
         super().__init__(n_sample, mode)
         self.N = N
         self.T = T
@@ -25,7 +25,7 @@ class SIRModel(Simulator):
         self.constant_hazard = constant_hazard
         self.theta_true = np.array([beta, gamma])
         self.name = "SIR"
-        self.data, self.theta = self.sample_model(load_data)
+        # self.data, self.theta = self.sample_model(load_data)
         # if load_data:
         #     self.save_data()
             

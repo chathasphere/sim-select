@@ -1,0 +1,11 @@
+defaults:
+  - base-reinfection
+
+dataset:
+  _target_: src.data.reinfection.Window
+  gamma:
+    _target_: torch.distributions.Exponential
+    rate: 10
+  tau:
+    _target_: torch.distributions.Exponential
+    rate: 4

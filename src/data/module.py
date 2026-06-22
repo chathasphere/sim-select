@@ -21,6 +21,7 @@ class SimulatorModule(L.LightningDataModule):
 
     
     def setup(self, stage):
+        # TODO: run the sampling logic here.
         train_size = int(self.train_frac * len(self.dataset))
         val_size = len(self.dataset) - train_size
         self.train, self.val = random_split(

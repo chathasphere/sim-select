@@ -24,7 +24,7 @@ class SEIRModel(Simulator):
             self.noiser = None
         self.name = "SEIR"
         self.theta_true = np.array([beta, sigma, gamma])
-        self.data, self.theta = self.sample_model(load_data)
+        # self.data, self.theta = self.sample_model(load_data)
         
         
     def sample_model(self, load_data):
