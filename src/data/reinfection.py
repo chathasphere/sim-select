@@ -15,7 +15,7 @@ class BaseReinfectionModel(Simulator):
     Always returns only incidence as a tensor shaped `(1, T)`.
     """
     def __init__(self, init_I, init_S, beta, epsilon,
-                 nu, rho, n_sample=None, noise_scale=0.01, mode="estimation", 
+                 nu, rho, noise_scale, n_sample=None, mode="estimation", 
                  load_data=False, notebook=False):
         super().__init__(n_sample, mode)
         self.N = 284 # total population of TdC
@@ -32,8 +32,13 @@ class BaseReinfectionModel(Simulator):
         self.noise_scale = noise_scale
         self.name = "reinfection-base"
         self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho}
-        self.transforms = (torch.log, torch.log, torch.log, lambda x: torch.logit(x, eps=0.01))
-        self.inverse_transforms = (torch.exp, torch.exp, torch.exp, torch.special.expit)
+        # rate parameters are constrained to the positive reals (P)
+        # probability parameters are constrained to the unit interval (I)
+        self.constraints = ("P", "P", "P", "I")
+        self.transforms = {"P": torch.log, "I": lambda x: torch.logit(x, eps=0.01)}
+        self.inverse_transforms = {"P": torch.exp, "I": torch.special.expit}
+        # self.transforms = (torch.log, torch.log, torch.log, lambda x: torch.logit(x, eps=0.01))
+        # self.inverse_transforms = (torch.exp, torch.exp, torch.exp, torch.special.expit)
         self.load_data = load_data
         self.original_data = None
         
@@ -66,19 +71,21 @@ class BaseReinfectionModel(Simulator):
     def transform_parameters(self, prior:torch.tensor, inverse=False):
         # assumes prior is of shape (N, 4)
         # N samples of 4 components
-        assert prior.shape[1] == len(self.transforms) == len(self.inverse_transforms)
+        assert prior.shape[1] == len(self.constraints)
         
         if inverse:
             # map back to natural domains
             inverted = torch.empty(prior.shape)
-            for i, t in enumerate(self.inverse_transforms):
+            for i, c in enumerate(self.constraints):
+                t = self.inverse_transforms[c]
                 inverted.T[i] = t(prior.T[i])
             return inverted
         else:
             # map constrained parameters to the real line
             # helps with neural posterior estimation
             transformed = torch.empty(prior.shape)
-            for i, t in enumerate(self.transforms):
+            for i, c in enumerate(self.constraints):
+                t = self.transforms[c]
                 transformed.T[i] = t(prior.T[i])
             return transformed
             
@@ -161,9 +168,7 @@ class BaseReinfectionModel(Simulator):
         for t in range(1, T):
             observed[t] = poisson(rho * incidence[t])
             
-        
-        # incidence as proportion of population per time step
-        data = incidence / N
+        data = observed / N
         if self.mode == "criticism":
             data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
 
@@ -172,18 +177,19 @@ class BaseReinfectionModel(Simulator):
         return torch.tensor(data).float()
     
     
-class Window(BaseReinfectionModel):
+class Win(BaseReinfectionModel):
     """Reinfection model for the Window-of-reinfection hypothesis. Assumes that the acquisition of protective immunity
     is delayed after recovery, meaning that there's a window of susceptibility to reinfection by the same strain."""
     def __init__(self, init_I, init_S, beta, epsilon,
-                 nu, rho, gamma, tau, n_sample=None, mode="estimation", load_data=False, notebook=False):
+                 nu, rho, noise_scale, gamma, tau, n_sample=None, mode="estimation", load_data=False, notebook=False):
         super().__init__(init_I, init_S, beta, epsilon,
-                 nu, rho, n_sample, mode, load_data, notebook)
+                 nu, rho, noise_scale, n_sample, mode, load_data, notebook)
         
-        self.name = "win"
+        self.name = "Win"
         self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho, "gamma": gamma, "tau": tau}
-        self.transforms = (torch.log, torch.log, torch.log, lambda x: torch.logit(x, eps=0.01), torch.log, torch.log)
-        self.inverse_transforms = (torch.exp, torch.exp, torch.exp, torch.special.expit, torch.exp, torch.exp)
+        self.constraints = ("P", "P", "P", "I", "P", "P")
+        # self.transforms = (torch.log, torch.log, torch.log, lambda x: torch.logit(x, eps=0.01), torch.log, torch.log)
+        # self.inverse_transforms = (torch.exp, torch.exp, torch.exp, torch.special.expit, torch.exp, torch.exp)
         
         
     def simulate(self, theta, seed=None):
@@ -267,10 +273,46 @@ class Window(BaseReinfectionModel):
             
         
         # incidence as proportion of population per time step
-        sInc = incidence / N
-
-
-        data = sInc.reshape(1, -1)
+        data = observed / N
+        if self.mode == "criticism":
+            data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
+            
         return torch.tensor(data).float()
     
     
+
+class AoN(BaseReinfectionModel):
+    def __init__(self, init_I, init_S, beta, epsilon, nu, rho, noise_scale,
+                 gamma, alpha, n_sample=None, mode="estimation",
+                 load_data=False, notebook=False):
+        super().__init__(init_I, init_S, beta, epsilon,
+                 nu, rho, noise_scale, n_sample, mode, load_data, notebook)
+        
+        self.name = "AoN"
+        self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho, "alpha": alpha, "gamma": gamma}
+        self.constraints = ("P", "P", "P", "I", "I", "P")
+        
+    def simulate(self, theta, seed=None):
+        beta, epsilon, nu, rho, alpha, gamma = theta
+        N, T = self.N, self.T
+        
+        # initial counts
+        S = self.init_S
+        E = 0
+        I = self.init_I
+        R = 0
+        L = N - S - I # allow for some initial immune subjects
+        
+        
+        if seed is not None:
+            np.random.seed(seed)
+
+        # true incidence counts per discrete time interval [t-1, t)
+        incidence = np.zeros(T, dtype=np.float32)
+        # observed incidence counts
+        observed = np.zeros(T, dtype=np.float32)
+    
+        
+# parent class for 2 Virus (2-Vi) and Mutation (Mut)
+class DualStrain(BaseReinfectionModel):
+    NotImplemented
