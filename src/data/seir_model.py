@@ -24,13 +24,13 @@ class SEIRModel(Simulator):
             self.noiser = None
         self.name = "SEIR"
         self.theta_true = np.array([beta, sigma, gamma])
-        # self.data, self.theta = self.sample_model(load_data)
+        self.load_data = load_data
         
         
     def sample_model(self, load_data):
-        ds, thetas = super().sample_model(load_data)
+        super().sample_model(load_data)
         # consider moving thetas to the log scale
-        return ds, thetas.float()
+        self.theta = torch.log(self.theta)
         
     def sample_prior(self, N, seed=None):
         if seed: torch.manual_seed(seed)

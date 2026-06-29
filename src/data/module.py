@@ -1,11 +1,13 @@
 from torch.utils.data import DataLoader, Dataset, random_split
+from src.data.simulator import Simulator
 import torch
 import lightning as L
 
 class SimulatorModule(L.LightningDataModule):
-    def __init__(self, dataset: Dataset, seed, batch_size, train_frac, task):
+    def __init__(self, dataset: Simulator, seed, batch_size, train_frac, task):
         super().__init__()
         self.dataset = dataset(mode=task)
+        self.dataset.sample_model()
         self.seed = seed
         self.batch_size = batch_size
         self.train_frac = train_frac
@@ -21,7 +23,6 @@ class SimulatorModule(L.LightningDataModule):
 
     
     def setup(self, stage):
-        # TODO: run the sampling logic here.
         train_size = int(self.train_frac * len(self.dataset))
         val_size = len(self.dataset) - train_size
         self.train, self.val = random_split(

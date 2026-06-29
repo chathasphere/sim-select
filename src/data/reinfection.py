@@ -8,8 +8,6 @@ from hydra.utils import get_original_cwd
 # basic SEIR model of influenza
 # simulates the incidence (new infectious cases) time series
 
-# TODO: read in the TDC influenza data. Return time series as the observed data, use it to set the initial conditions
-
 
 class BaseReinfectionModel(Simulator):
     """SEIR model that returns incidence (new infectious cases) time series.
@@ -17,8 +15,8 @@ class BaseReinfectionModel(Simulator):
     Always returns only incidence as a tensor shaped `(1, T)`.
     """
     def __init__(self, init_I, init_S, beta, epsilon,
-                 nu, rho, n_sample=None, mode="estimation", 
-                 load_data=False, notebook=False, sample=True):
+                 nu, rho, n_sample=None, noise_scale=0.01, mode="estimation", 
+                 load_data=False, notebook=False):
         super().__init__(n_sample, mode)
         self.N = 284 # total population of TdC
         prefix = ".." if notebook else get_original_cwd()
@@ -31,17 +29,39 @@ class BaseReinfectionModel(Simulator):
         self.init_I = init_I
         assert init_S <= self.N - init_I
         self.init_S = init_S
+        self.noise_scale = noise_scale
         self.name = "reinfection-base"
         self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho}
         self.transforms = (torch.log, torch.log, torch.log, lambda x: torch.logit(x, eps=0.01))
         self.inverse_transforms = (torch.exp, torch.exp, torch.exp, torch.special.expit)
-        # can disable this call for purposes of inheritance
-        # if sample: self.data, self.theta = self.sample_model(load_data)
+        self.load_data = load_data
+        self.original_data = None
         
-    def sample_model(self, load_data):
-        ds, thetas = super().sample_model(load_data)
-        transformed_thetas = self.transform_parameters(thetas)
-        return ds, transformed_thetas
+    def sample_model(self):
+        super().sample_model(self.load_data)
+        self.theta = self.transform_parameters(self.theta)
+        
+    def resample(self, k:int, pad:int=60):
+        if k == 1:
+            # return to original length
+            if self.original_data is not None: self.data = self.original_data
+            self.original_data = None
+        else:
+            # prevent resampling from occurring twice
+            assert self.original_data is None
+            M, T = self.data.shape
+            y = torch.zeros((M, pad))
+            y[:, :T] = self.data
+            self.original_data = self.data.clone()
+            self.data = y.unfold(1, k, k).sum(-1)
+        
+    # def resample(self, x: torch.tensor, k: int, pad=60):
+    #     M, T = x.shape
+    #     assert T == self.T
+    #     y = torch.zeros((M, pad))
+    #     y[:, :T] = x
+    #     return y.unfold(1, k, k).sum(-1)
+        
     
     def transform_parameters(self, prior:torch.tensor, inverse=False):
         # assumes prior is of shape (N, 4)
@@ -65,7 +85,7 @@ class BaseReinfectionModel(Simulator):
             
 
     def get_observed_data(self):
-        return torch.tensor(self._observed_data / self.N)
+        return torch.tensor(self._observed_data / self.N).unsqueeze(0)
 
     def sample_prior(self, n_sample, seed=None):
         if seed: torch.manual_seed(seed)
@@ -142,12 +162,13 @@ class BaseReinfectionModel(Simulator):
             observed[t] = poisson(rho * incidence[t])
             
         
-
         # incidence as proportion of population per time step
-        sInc = incidence / N
+        data = incidence / N
+        if self.mode == "criticism":
+            data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
 
-
-        data = sInc.reshape(1, -1)
+        # if we want to use transformer embeddings we need to put in another dimension here
+        # data = data.reshape(1, -1)
         return torch.tensor(data).float()
     
     
@@ -157,13 +178,13 @@ class Window(BaseReinfectionModel):
     def __init__(self, init_I, init_S, beta, epsilon,
                  nu, rho, gamma, tau, n_sample=None, mode="estimation", load_data=False, notebook=False):
         super().__init__(init_I, init_S, beta, epsilon,
-                 nu, rho, n_sample, mode, load_data, notebook, sample=False)
+                 nu, rho, n_sample, mode, load_data, notebook)
         
         self.name = "win"
         self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho, "gamma": gamma, "tau": tau}
         self.transforms = (torch.log, torch.log, torch.log, lambda x: torch.logit(x, eps=0.01), torch.log, torch.log)
         self.inverse_transforms = (torch.exp, torch.exp, torch.exp, torch.special.expit, torch.exp, torch.exp)
-        # self.data, self.theta = self.sample_model(load_data)
+        
         
     def simulate(self, theta, seed=None):
         beta, epsilon, nu, rho, gamma, tau = theta
@@ -186,7 +207,7 @@ class Window(BaseReinfectionModel):
         observed = np.zeros(T, dtype=np.float32)
 
         t = 0
-        while t < T and (S > 0 or E > 0 or I > 0):
+        while t < T and (S > 0 or E > 0 or I > 0 or R > 0 or W > 0):
             rate_inf = beta * S * I / N
             rate_inc = epsilon * E
             rate_rec = nu * I

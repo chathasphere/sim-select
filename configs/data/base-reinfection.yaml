@@ -6,6 +6,7 @@ dataset:
   _partial_: True
   init_I: 1
   init_S: 277
+  noise_scale: 0.01
   beta:
     _target_: torch.distributions.Exponential
     rate: 0.2

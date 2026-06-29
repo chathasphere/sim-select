@@ -25,16 +25,15 @@ class SIRModel(Simulator):
         self.constant_hazard = constant_hazard
         self.theta_true = np.array([beta, gamma])
         self.name = "SIR"
-        # self.data, self.theta = self.sample_model(load_data)
-        # if load_data:
-        #     self.save_data()
-            
+        self.load_data = load_data
+        self.p_init = p_init
+
         # TODO: compatibility with transformers
         
         
-    def sample_model(self, load_data):
-        ds, thetas = super().sample_model(load_data)
-        return ds, torch.log(thetas).float()
+    def sample_model(self):
+        super().sample_model()
+        self.theta = torch.log(self.theta)
         
         
     def sample_prior(self, N, seed=None):

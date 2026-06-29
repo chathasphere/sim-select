@@ -10,6 +10,7 @@ class Simulator(Dataset):
         self.theta_true = None
         self.mode = mode
         self.name = None
+        self.load_data = False
 
     def __len__(self):
         return self.n_sample
@@ -37,12 +38,13 @@ class Simulator(Dataset):
         save=False
         if load_data:
             try:
-                return self.load_data()
+                self.load_data()
+                return
             except FileNotFoundError:
                 print("Saved simulations not found!")
                 save = True
         print("Simulating samples...")
-        return self._sample_model(save=False)
+        self._sample_model(save=save)
     
     def _sample_model(self, save=False):
         # consider making this a method of the parent class
@@ -56,17 +58,16 @@ class Simulator(Dataset):
             )
             ds.append(sim)
         
-        ds = torch.stack(ds).float()
-        thetas = thetas.float()
+        self.data = torch.stack(ds).float()
+        self.theta = thetas.float()
         if save:
-            self.save_data(ds, thetas)
+            self.save_data(self.data, self.theta)
         return ds, thetas
     
     def load_data(self):
         prefix = get_original_cwd()
-        data = torch.load(f"{prefix}/simulated_data/{self.name}_data_{self.n_sample}.pt")
-        theta = torch.load(f"{prefix}/simulated_data/{self.name}_theta_{self.n_sample}.pt")
-        return data, theta
+        self.data = torch.load(f"{prefix}/simulated_data/{self.name}_data_{self.n_sample}.pt")
+        self.theta = torch.load(f"{prefix}/simulated_data/{self.name}_theta_{self.n_sample}.pt")
     
     
     def save_data(self, data, theta):
