@@ -1,5 +1,5 @@
 defaults:
-  - data: sir
+  - data: ppi # win
   - model: npe # mde
   - trainer: default
   - _self_
@@ -22,9 +22,9 @@ hydra:
 
 
 # debugging settings
-# data:
-#   dataset:
-#     n_sample: 200
-#     load_data: False
-# trainer:
-#   fast_dev_run: True
+data:
+  dataset:
+    n_sample: 200
+    load_data: False
+trainer:
+  fast_dev_run: True

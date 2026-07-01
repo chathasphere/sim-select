@@ -1,0 +1,12 @@
+defaults:
+  - base-reinfection
+
+dataset:
+  _target_: src.data.reinfection.InH
+  gamma:
+    _target_: torch.distributions.Exponential
+    rate: 12
+  alpha:
+    _target_: torch.distributions.Uniform
+    low: 0.1
+    high: 0.9

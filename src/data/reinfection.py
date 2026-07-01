@@ -8,7 +8,6 @@ from hydra.utils import get_original_cwd
 # basic SEIR model of influenza
 # simulates the incidence (new infectious cases) time series
 
-
 class BaseReinfectionModel(Simulator):
     """SEIR model that returns incidence (new infectious cases) time series.
 
@@ -223,13 +222,13 @@ class Win(BaseReinfectionModel):
             rate_inc = epsilon * E
             # recovery, I -> R
             rate_rec = nu * I
-            # reentry into the transmission process, R -> W
-            rate_reentry = gamma * R
+            # window of reinfection, R -> W
+            rate_win = gamma * R
             # reinfection, W -> E
             rate_reinf = beta * W * I / N
             # long term immunization, W -> L
             rate_imm = tau * W
-            rates = (rate_inf, rate_inc, rate_rec, rate_reentry, rate_reinf, rate_imm)
+            rates = (rate_inf, rate_inc, rate_rec, rate_win, rate_reinf, rate_imm)
             total_rate = sum(rates)
             if total_rate <= 0:
                 break
@@ -257,7 +256,7 @@ class Win(BaseReinfectionModel):
                 I -= 1
                 R += 1
             elif draw < sum(rates[:4]):
-                # reentry
+                # reinfection window
                 R -= 1
                 W += 1
             elif draw < sum(rates[:5]):
@@ -295,7 +294,8 @@ class AoN(BaseReinfectionModel):
                  nu, rho, noise_scale, n_sample, mode, load_data, notebook)
         
         self.name = "AoN"
-        self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho, "alpha": alpha, "gamma": gamma}
+        self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho, 
+                           "alpha": alpha, "gamma": gamma}
         self.constraints = ("P", "P", "P", "I", "I", "P")
         
     def simulate(self, theta, seed=None):
@@ -328,7 +328,7 @@ class AoN(BaseReinfectionModel):
             rate_ret = (1 - alpha) * gamma * R
             # immunization, R -> L
             rate_imm = alpha * gamma * R
-            rates = (rate_inf, rate_inc, rate_rec, rate_rec, rate_imm)
+            rates = (rate_inf, rate_inc, rate_rec, rate_ret, rate_imm)
             total_rate = sum(rates)
             if total_rate <=0:
                 break
@@ -376,7 +376,185 @@ class AoN(BaseReinfectionModel):
             data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
             
         return torch.tensor(data).float()
+
+class PPI(BaseReinfectionModel):
+    def __init__(self, init_I, init_S, beta, epsilon, nu, rho, sigma, gamma,
+                 noise_scale=0.01, n_sample=None, mode="estimation", 
+                 load_data=False, notebook=False):
+        super().__init__(init_I, init_S, beta, epsilon,
+                 nu, rho, noise_scale, n_sample, mode, load_data, notebook)
         
-# parent class for 2 Virus (2-Vi) and Mutation (Mut)
-class DualStrain(BaseReinfectionModel):
-    NotImplemented
+        self.name = "PPI"
+        self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho,
+                           "sigma": sigma, "gamma": gamma}
+        self.constraints = ("P", "P", "P", "I", "I", "P")
+        
+    def simulate(self, theta, seed=None):
+        beta, epsilon, nu, rho, sigma, gamma = theta
+        N, T = self.N, self.T
+        
+        # initial counts
+        S = self.init_S
+        E = 0
+        I = self.init_I
+        R = 0
+        L = N - S - I # allow for some initial immune subjects
+        
+        
+        if seed is not None:
+            np.random.seed(seed)
+
+        # true incidence counts per discrete time interval [t-1, t)
+        incidence = np.zeros(T, dtype=np.float32)
+
+        t = 0
+        while t < T and (S > 0 or E > 0 or I > 0 or R > 0):
+            # infection, S -> E
+            rate_inf = beta * S * I / N
+            # incubation, E -> I
+            rate_inc = epsilon * E
+            # recovery, I -> R
+            rate_rec = nu * I
+            # reinfection, L -> E
+            rate_reinf = sigma * beta * L * I / N
+            # immunization, R -> L
+            rate_imm = gamma * R
+            rates = (rate_inf, rate_inc, rate_rec, rate_reinf, rate_imm)
+            total_rate = sum(rates)
+            if total_rate <=0:
+                break
+            
+            d = np.random.exponential(1.0 / total_rate)
+            t_next = t + d
+
+            # choose event type
+            draw = np.random.uniform(0.0, total_rate)
+            if draw < sum(rates[:1]):
+                # infection
+                S -= 1
+                E += 1
+            elif draw < sum(rates[:2]):
+                # incubation/progression
+                E -= 1
+                I += 1
+                # add another case to the incidence for current time step
+                idx = int(np.floor(t_next))
+                if idx < T:
+                    incidence[idx] += 1.0
+            elif draw < sum(rates[:3]):
+                # recovery
+                I -= 1
+                R += 1
+            elif draw < sum(rates[:4]):
+                # reinfection
+                L -= 1
+                E += 1
+            else:
+                # immunization
+                R -= 1
+                L += 1
+            
+            # if event occurs after the final observation window, stop
+            if t_next >= T:
+                break
+            
+            t = t_next
+        # observed incidence counts
+        observed = self.observation_model(incidence, rho)            
+        # incidence as proportion of population per time step
+        data = observed / N
+        if self.mode == "criticism":
+            data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
+            
+        return torch.tensor(data).float()
+    
+class InH(BaseReinfectionModel):
+    def __init__(self, init_I, init_S, beta, epsilon, nu, rho, alpha, gamma,
+                 noise_scale=0.01, n_sample=None, mode="estimation", 
+                 load_data=False, notebook=False):
+        super().__init__(init_I, init_S, beta, epsilon,
+                 nu, rho, noise_scale, n_sample, mode, load_data, notebook)
+        
+        self.name = "InHI"
+        self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho,
+                           "alpha": alpha, "gamma": gamma}
+        self.constraints = ("P", "P", "P", "I", "I", "P")
+        
+    def simulate(self, theta, seed=None):
+        beta, epsilon, nu, rho, alpha, gamma = theta
+        N, T = self.N, self.T
+        
+        # initial counts
+        S = self.init_S
+        E = 0
+        I = self.init_I
+        R = 0
+        L = N - S - I # allow for some initial immune subjects
+        
+        
+        if seed is not None:
+            np.random.seed(seed)
+
+        # true incidence counts per discrete time interval [t-1, t)
+        incidence = np.zeros(T, dtype=np.float32)
+
+        t = 0
+        while t < T and (S > 0 or E > 0 or I > 0 or R > 0):
+            # infection, S -> E
+            rate_inf = beta * S * I / N
+            # incubation, E -> I
+            rate_inc = epsilon * E
+            # recovery, I -> R
+            rate_rec = nu * I
+            # reinfection, R -> I
+            rate_reinf = (1 - alpha) * gamma * R
+            # immunization, R -> L
+            rate_imm = alpha * gamma * R
+            rates = (rate_inf, rate_inc, rate_rec, rate_reinf, rate_imm)
+            total_rate = sum(rates)
+            if total_rate <=0:
+                break
+            
+            d = np.random.exponential(1.0 / total_rate)
+            t_next = t + d
+
+            # choose event type
+            draw = np.random.uniform(0.0, total_rate)
+            if draw < sum(rates[:1]):
+                # infection
+                S -= 1
+                E += 1
+            elif draw < sum(rates[:2]):
+                # incubation/progression
+                E -= 1
+                I += 1
+                # add another case to the incidence for current time step
+                idx = int(np.floor(t_next))
+                if idx < T:
+                    incidence[idx] += 1.0
+            elif draw < sum(rates[:3]):
+                # recovery
+                I -= 1
+                R += 1
+            elif draw < sum(rates[:4]):
+                # reinfection
+                R -= 1
+                I += 1
+            else:
+                # immunization
+                R -= 1
+                L += 1
+            
+            # if event occurs after the final observation window, stop
+            if t_next >= T:
+                break
+            
+            t = t_next
+        # observed incidence counts
+        observed = self.observation_model(incidence, rho)            
+        # incidence as proportion of population per time step
+        data = observed / N
+        if self.mode == "criticism":
+            data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
+            
+        return torch.tensor(data).float()
