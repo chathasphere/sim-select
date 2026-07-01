@@ -15,7 +15,7 @@ class BaseReinfectionModel(Simulator):
     Always returns only incidence as a tensor shaped `(1, T)`.
     """
     def __init__(self, init_I, init_S, beta, epsilon,
-                 nu, rho, noise_scale, n_sample=None, mode="estimation", 
+                 nu, rho, noise_scale=0.01, n_sample=None, mode="estimation", 
                  load_data=False, notebook=False):
         super().__init__(n_sample, mode)
         self.N = 284 # total population of TdC
@@ -103,6 +103,14 @@ class BaseReinfectionModel(Simulator):
             prior[i] = distr.sample((n_sample,))
         return prior.T
     
+    @staticmethod
+    def observation_model(incidence: np.array, rho: float):
+        T = len(incidence)
+        observed = np.zeros(T, dtype=np.float32)
+        for t in range(1, T):
+            observed[t] = poisson(rho * incidence[t])
+        return observed
+    
     def simulate(self, theta, seed=None):
         beta, epsilon, nu, rho = theta
         N, T = self.N, self.T
@@ -118,9 +126,7 @@ class BaseReinfectionModel(Simulator):
 
         # true incidence counts per discrete time interval [t-1, t)
         incidence = np.zeros(T, dtype=np.float32)
-        # observed incidence counts
-        observed = np.zeros(T, dtype=np.float32)
-
+        
         t = 0
         while t < T and (S > 0 or E > 0 or I > 0):
             rate_inf = beta * S * I / N
@@ -163,10 +169,9 @@ class BaseReinfectionModel(Simulator):
 
             t = t_next
             
-        # observational model
-        # maybe make this optional if class arg observation_model=False or smth
-        for t in range(1, T):
-            observed[t] = poisson(rho * incidence[t])
+        
+        # observed incidence counts
+        observed = self.observation_model(incidence, rho)
             
         data = observed / N
         if self.mode == "criticism":
@@ -181,7 +186,7 @@ class Win(BaseReinfectionModel):
     """Reinfection model for the Window-of-reinfection hypothesis. Assumes that the acquisition of protective immunity
     is delayed after recovery, meaning that there's a window of susceptibility to reinfection by the same strain."""
     def __init__(self, init_I, init_S, beta, epsilon,
-                 nu, rho, noise_scale, gamma, tau, n_sample=None, mode="estimation", load_data=False, notebook=False):
+                 nu, rho,  gamma, tau, noise_scale=0.01, n_sample=None, mode="estimation", load_data=False, notebook=False):
         super().__init__(init_I, init_S, beta, epsilon,
                  nu, rho, noise_scale, n_sample, mode, load_data, notebook)
         
@@ -209,17 +214,20 @@ class Win(BaseReinfectionModel):
 
         # true incidence counts per discrete time interval [t-1, t)
         incidence = np.zeros(T, dtype=np.float32)
-        # observed incidence counts
-        observed = np.zeros(T, dtype=np.float32)
 
         t = 0
         while t < T and (S > 0 or E > 0 or I > 0 or R > 0 or W > 0):
+            # infection, S -> E
             rate_inf = beta * S * I / N
+            # incubation, E -> I
             rate_inc = epsilon * E
+            # recovery, I -> R
             rate_rec = nu * I
-            # reentry into the transmission process
+            # reentry into the transmission process, R -> W
             rate_reentry = gamma * R
+            # reinfection, W -> E
             rate_reinf = beta * W * I / N
+            # long term immunization, W -> L
             rate_imm = tau * W
             rates = (rate_inf, rate_inc, rate_rec, rate_reentry, rate_reinf, rate_imm)
             total_rate = sum(rates)
@@ -266,12 +274,10 @@ class Win(BaseReinfectionModel):
                 break
             
             t = t_next
-        # observational model
-        # maybe make this optional if class arg observation_model=False or smth
-        for t in range(1, T):
-            observed[t] = poisson(rho * incidence[t])
-            
         
+        # observational model
+        observed = self.observation_model(incidence, rho)
+            
         # incidence as proportion of population per time step
         data = observed / N
         if self.mode == "criticism":
@@ -282,8 +288,8 @@ class Win(BaseReinfectionModel):
     
 
 class AoN(BaseReinfectionModel):
-    def __init__(self, init_I, init_S, beta, epsilon, nu, rho, noise_scale,
-                 gamma, alpha, n_sample=None, mode="estimation",
+    def __init__(self, init_I, init_S, beta, epsilon, nu, rho, 
+                 gamma, alpha, noise_scale=0.01, n_sample=None, mode="estimation",
                  load_data=False, notebook=False):
         super().__init__(init_I, init_S, beta, epsilon,
                  nu, rho, noise_scale, n_sample, mode, load_data, notebook)
@@ -309,9 +315,67 @@ class AoN(BaseReinfectionModel):
 
         # true incidence counts per discrete time interval [t-1, t)
         incidence = np.zeros(T, dtype=np.float32)
+
+        t = 0
+        while t < T and (S > 0 or E > 0 or I > 0 or R > 0):
+            # infection, S -> E
+            rate_inf = beta * S * I / N
+            # incubation, E -> I
+            rate_inc = epsilon * E
+            # recovery, I -> R
+            rate_rec = nu * I
+            # return, R -> S
+            rate_ret = (1 - alpha) * gamma * R
+            # immunization, R -> L
+            rate_imm = alpha * gamma * R
+            rates = (rate_inf, rate_inc, rate_rec, rate_rec, rate_imm)
+            total_rate = sum(rates)
+            if total_rate <=0:
+                break
+            
+            d = np.random.exponential(1.0 / total_rate)
+            t_next = t + d
+
+            # choose event type
+            draw = np.random.uniform(0.0, total_rate)
+            if draw < sum(rates[:1]):
+                # infection
+                S -= 1
+                E += 1
+            elif draw < sum(rates[:2]):
+                # incubation/progression
+                E -= 1
+                I += 1
+                # add another case to the incidence for current time step
+                idx = int(np.floor(t_next))
+                if idx < T:
+                    incidence[idx] += 1.0
+            elif draw < sum(rates[:3]):
+                # recovery
+                I -= 1
+                R += 1
+            elif draw < sum(rates[:4]):
+                # return to susceptibility
+                R -= 1
+                S += 1
+            else:
+                # immunization
+                R -= 1
+                L += 1
+            
+            # if event occurs after the final observation window, stop
+            if t_next >= T:
+                break
+            
+            t = t_next
         # observed incidence counts
-        observed = np.zeros(T, dtype=np.float32)
-    
+        observed = self.observation_model(incidence, rho)            
+        # incidence as proportion of population per time step
+        data = observed / N
+        if self.mode == "criticism":
+            data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
+            
+        return torch.tensor(data).float()
         
 # parent class for 2 Virus (2-Vi) and Mutation (Mut)
 class DualStrain(BaseReinfectionModel):

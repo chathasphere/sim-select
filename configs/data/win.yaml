@@ -2,7 +2,7 @@ defaults:
   - base-reinfection
 
 dataset:
-  _target_: src.data.reinfection.Window
+  _target_: src.data.reinfection.Win
   gamma:
     _target_: torch.distributions.Exponential
     rate: 10
