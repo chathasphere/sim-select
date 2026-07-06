@@ -1,0 +1,11 @@
+defaults:
+  - base-reinfection
+
+dataset:
+  _target_: src.data.reinfection.TwoVi
+  beta_1:
+    _target_: torch.distributions.Exponential
+    rate: 10
+  beta_2:
+    _target_: torch.distributions.Exponential
+    rate: 10
