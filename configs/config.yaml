@@ -1,5 +1,5 @@
 defaults:
-  - data: ppi # win
+  - data: sir # win
   - model: npe # mde
   - trainer: default
   - _self_

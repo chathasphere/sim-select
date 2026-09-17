@@ -1,0 +1,10 @@
+defaults:
+  - base-simulator
+
+dataset:
+  _target_: src.data.household.HouseholdEpidemicModel
+  _partial_: True
+  H: [26, 50, 17]
+  observed_data: [.58, .42, .24, .34, .42, .24, .24, .24, .29]
+  model_idx: 0
+  prior_scale: [1, 1]

@@ -6,7 +6,7 @@ from src.utils import discrete_noiser
 
 class SEIRModel(Simulator):
     def __init__(self, beta, sigma, gamma, N, T, prior_scale, n_sample=None,
-                 observed_seed=None, partial_obs=False, mode="estimation", noise=None,
+                 observed_seed=None, mode="estimation", noise=None,
                  load_data=False):
         super().__init__(n_sample, mode)
         self.beta = beta
@@ -16,7 +16,6 @@ class SEIRModel(Simulator):
         self.T = T
         self.obs_seed = observed_seed
         self.prior_scale = prior_scale
-        self.partial = partial_obs
         # TODO: save simulated data
         if noise is not None:
             self.noiser = discrete_noiser(**noise)
@@ -27,8 +26,8 @@ class SEIRModel(Simulator):
         self.load_data = load_data
         
         
-    def sample_model(self, load_data):
-        super().sample_model(load_data)
+    def sample_model(self):
+        super().sample_model()
         # consider moving thetas to the log scale
         self.theta = torch.log(self.theta)
         
@@ -78,18 +77,12 @@ class SEIRModel(Simulator):
             
         # summarize simulated data
         sX = X.mean(1)
-        sY = Y.mean(1)
         
         # noising stage for density estimation
         if self.mode == "criticism" and self.noiser is not None:
             sX = sX + self.noiser(size=sX.shape) * (1 / self.N)
-            sY = sY + self.noiser(size=sX.shape) * (1 / self.N)
         
-        if self.partial:
-            data = sX # only incidence (new cases) is observed
-            data = data.reshape(1, -1)
-        else:
-            data = np.stack([sX, sY])
+        data = sX.reshape(1, -1)
         
         return torch.tensor(data).float()
     

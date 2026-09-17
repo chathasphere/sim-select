@@ -7,3 +7,10 @@ dataset:
     _target_: torch.distributions.Uniform
     low: 0.1
     high: 0.6
+  gamma:
+    _target_: torch.distributions.Exponential
+    rate: 10
+  mu:
+    _target_: torch.distributions.Uniform
+    low: 0
+    high: 1

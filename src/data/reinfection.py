@@ -8,6 +8,9 @@ from hydra.utils import get_original_cwd
 # basic SEIR model of influenza
 # simulates the incidence (new infectious cases) time series
 
+# TODO: logic to return the true incidence without applying the observational model
+# could be useful for computing extinction probabilities
+
 class BaseReinfectionModel(Simulator):
     """SEIR model that returns incidence (new infectious cases) time series.
 
@@ -20,9 +23,6 @@ class BaseReinfectionModel(Simulator):
         self.N = 284 # total population of TdC
         prefix = ".." if notebook else get_original_cwd()
         self._observed_data = pd.read_csv(f"{prefix}/data/fluTDC1971.csv")["obs"].values.astype(np.float32)
-        # TODO: figure out a good way to resample the data to a lower time frequency
-        # e.g. for timestep K days, take 
-        # flu["obs"].rolling(K, min_periods=1).sum()[K-1::K]
         self.T = len(self._observed_data)
         assert init_I < self.N
         self.init_I = init_I
@@ -36,8 +36,6 @@ class BaseReinfectionModel(Simulator):
         self.constraints = ("P", "P", "P", "I")
         self.transforms = {"P": torch.log, "I": lambda x: torch.logit(x, eps=0.01)}
         self.inverse_transforms = {"P": torch.exp, "I": torch.special.expit}
-        # self.transforms = (torch.log, torch.log, torch.log, lambda x: torch.logit(x, eps=0.01))
-        # self.inverse_transforms = (torch.exp, torch.exp, torch.exp, torch.special.expit)
         self.load_data = load_data
         self.original_data = None
         
@@ -110,7 +108,7 @@ class BaseReinfectionModel(Simulator):
             observed[t] = poisson(rho * incidence[t])
         return observed
     
-    def simulate(self, theta, seed=None):
+    def simulate(self, theta, seed=None, observed=True):
         beta, epsilon, nu, rho = theta
         N, T = self.N, self.T
 
@@ -170,14 +168,15 @@ class BaseReinfectionModel(Simulator):
             
         
         # observed incidence counts
-        observed = self.observation_model(incidence, rho)
+        if observed:
+            data = self.observation_model(incidence, rho)
+        else:
+            data = incidence
             
-        data = observed / N
+        data = data / N
         if self.mode == "criticism":
             data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
 
-        # if we want to use transformer embeddings we need to put in another dimension here
-        # data = data.reshape(1, -1)
         return torch.tensor(data).float()
     
     
@@ -196,7 +195,7 @@ class Win(BaseReinfectionModel):
         # self.inverse_transforms = (torch.exp, torch.exp, torch.exp, torch.special.expit, torch.exp, torch.exp)
         
         
-    def simulate(self, theta, seed=None):
+    def simulate(self, theta, seed=None, observed=True):
         beta, epsilon, nu, rho, gamma, tau = theta
         N, T = self.N, self.T
 
@@ -275,14 +274,15 @@ class Win(BaseReinfectionModel):
             
             t = t_next
         
-        # observational model
-        observed = self.observation_model(incidence, rho)
+        if observed:
+            data = self.observation_model(incidence, rho)
+        else:
+            data = incidence
             
-        # incidence as proportion of population per time step
-        data = observed / N
+        data = data / N
         if self.mode == "criticism":
             data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
-            
+
         return torch.tensor(data).float()
     
     
@@ -299,7 +299,7 @@ class AoN(BaseReinfectionModel):
                            "alpha": alpha, "gamma": gamma}
         self.constraints = ("P", "P", "P", "I", "I", "P")
         
-    def simulate(self, theta, seed=None):
+    def simulate(self, theta, seed=None, observed=True):
         beta, epsilon, nu, rho, alpha, gamma = theta
         N, T = self.N, self.T
         
@@ -370,13 +370,17 @@ class AoN(BaseReinfectionModel):
                 break
             
             t = t_next
-        # observed incidence counts
-        observed = self.observation_model(incidence, rho)            
-        # incidence as proportion of population per time step
-        data = observed / N
+            
+            
+        if observed:
+            data = self.observation_model(incidence, rho)
+        else:
+            data = incidence
+            
+        data = data / N
         if self.mode == "criticism":
             data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
-            
+
         return torch.tensor(data).float()
 
 class PPI(BaseReinfectionModel):
@@ -391,7 +395,7 @@ class PPI(BaseReinfectionModel):
                            "sigma": sigma, "gamma": gamma}
         self.constraints = ("P", "P", "P", "I", "I", "P")
         
-    def simulate(self, theta, seed=None):
+    def simulate(self, theta, seed=None, observed=True):
         beta, epsilon, nu, rho, sigma, gamma = theta
         N, T = self.N, self.T
         
@@ -462,13 +466,16 @@ class PPI(BaseReinfectionModel):
                 break
             
             t = t_next
-        # observed incidence counts
-        observed = self.observation_model(incidence, rho)            
-        # incidence as proportion of population per time step
-        data = observed / N
+
+        if observed:
+            data = self.observation_model(incidence, rho)
+        else:
+            data = incidence
+            
+        data = data / N
         if self.mode == "criticism":
             data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
-            
+
         return torch.tensor(data).float()
     
 class InH(BaseReinfectionModel):
@@ -483,7 +490,7 @@ class InH(BaseReinfectionModel):
                            "alpha": alpha, "gamma": gamma}
         self.constraints = ("P", "P", "P", "I", "I", "P")
         
-    def simulate(self, theta, seed=None):
+    def simulate(self, theta, seed=None, observed=True):
         beta, epsilon, nu, rho, alpha, gamma = theta
         N, T = self.N, self.T
         
@@ -553,13 +560,16 @@ class InH(BaseReinfectionModel):
                 break
             
             t = t_next
-        # observed incidence counts
-        observed = self.observation_model(incidence, rho)            
-        # incidence as proportion of population per time step
-        data = observed / N
+
+        if observed:
+            data = self.observation_model(incidence, rho)
+        else:
+            data = incidence
+            
+        data = data / N
         if self.mode == "criticism":
             data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
-            
+
         return torch.tensor(data).float()
     
 class TwoVi(BaseReinfectionModel):
@@ -576,7 +586,7 @@ class TwoVi(BaseReinfectionModel):
                         "gamma": gamma, "beta_2": beta_2}
         self.constraints = ("P", "P", "P", "I", "P", "P")
     
-    def simulate(self, theta, seed=None):
+    def simulate(self, theta, seed=None, observed=True):
         beta_1, epsilon, nu, rho, gamma, beta_2 = theta
         N, T = self.N, self.T
         
@@ -584,8 +594,8 @@ class TwoVi(BaseReinfectionModel):
         S = self.init_S
         E1 = 0
         E2 = 0
-        I1 = self.init_I1
-        I2 = self.init_I2
+        I1 = self.init_I1 # "low" infection group
+        I2 = self.init_I2 # "high" infection group
         R1 = 0
         R2 = 0
         L1 = 0
@@ -696,31 +706,33 @@ class TwoVi(BaseReinfectionModel):
                 break
             
             t = t_next
-        # observed incidence counts
-        observed = self.observation_model(incidence, rho)            
-        # incidence as proportion of population per time step
-        data = observed / N
+
+        if observed:
+            data = self.observation_model(incidence, rho)
+        else:
+            data = incidence
+            
+        data = data / N
         if self.mode == "criticism":
             data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
-            
+
         return torch.tensor(data).float()
     
     
 class Mut(BaseReinfectionModel):
     def __init__(self, init_I, init_S, beta, epsilon, nu, rho, gamma,
-                 sigma, noise_scale=0.01, n_sample=None, mode="estimation", 
+                 sigma, mu, noise_scale=0.01, n_sample=None, mode="estimation", 
                  load_data=False, notebook=False):
         super().__init__(init_I, init_S, beta, epsilon,
                  nu, rho, noise_scale, n_sample, mode, load_data, notebook)
         self.init_I = init_I
         self.name = "Mut"
         self.parameters = {"beta": beta, "epsilon": epsilon, "nu": nu, "rho": rho,
-                        "gamma": gamma, "sigma":sigma}
-        self.constraints = ("P", "P", "P", "I", "P", "I")
-        self.mutation_window = (8, 14)
+                        "gamma": gamma, "sigma":sigma, "mu": mu}
+        self.constraints = ("P", "P", "P", "I", "P", "I", "I")
     
-    def simulate(self, theta, seed=None):
-        beta, epsilon, nu, rho, gamma, sigma = theta
+    def simulate(self, theta, seed=None, observed=True):
+        beta, epsilon, nu, rho, gamma, sigma, mu = theta
         N, T = self.N, self.T
         
         # initial counts
@@ -745,8 +757,9 @@ class Mut(BaseReinfectionModel):
         # true incidence counts per discrete time interval [t-1, t)
         incidence = np.zeros(T, dtype=np.float32)
 
-        mut_start, mut_stop = self.mutation_window
-        mutation_time = np.random.choice(np.arange(mut_start, mut_stop+1))
+        # mut_start, mut_stop = self.mutation_window
+        # mutation_time = np.random.choice(np.arange(mut_start, mut_stop+1))
+        mutation_time = np.floor(mu * 59)
         mutated = False
 
         t = 0
@@ -849,11 +862,14 @@ class Mut(BaseReinfectionModel):
                 break
             
             t = t_next
-        # observed incidence counts
-        observed = self.observation_model(incidence, rho)            
-        # incidence as proportion of population per time step
-        data = observed / N
+
+        if observed:
+            data = self.observation_model(incidence, rho)
+        else:
+            data = incidence
+            
+        data = data / N
         if self.mode == "criticism":
             data = data + np.random.normal(scale=self.noise_scale, size=data.shape)
-            
+
         return torch.tensor(data).float()
